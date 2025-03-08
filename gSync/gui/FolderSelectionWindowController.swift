@@ -19,7 +19,7 @@ class FolderSelectionWindowController: NSWindowController {
         window.title = "Select Google Drive Folder"
         
         let hostingController = NSHostingController(
-            rootView: FolderSelectionView()
+            rootView: FolderSelectionView(localFolderId: localFolderId) // Передаём localFolderId
                 .environmentObject(driveManager)
         )
         window.contentViewController = hostingController

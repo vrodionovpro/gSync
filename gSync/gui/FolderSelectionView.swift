@@ -6,6 +6,7 @@ struct FolderSelectionView: View {
     @State private var folders: [RemoteFolder] = [] // Список корневых папок
     @State private var selectedFolderId: String = "" // Выбранный ID папки
     @EnvironmentObject var driveManager: GoogleDriveManager // Менеджер для работы с Google Drive
+    var localFolderId: UUID? // Добавляем параметр для localFolderId
 
     var body: some View {
         VStack {
@@ -41,7 +42,7 @@ struct FolderSelectionView: View {
             Button("Confirm") {
                 print("Confirm button pressed, selectedFolderId: \(selectedFolderId)")
                 if !selectedFolderId.isEmpty {
-                    driveManager.setFolderId(selectedFolderId) // Прямой вызов для загрузки
+                    driveManager.setFolderId(selectedFolderId, localFolderId: localFolderId) // Передаём localFolderId
                 } else {
                     print("No folder selected")
                 }
