@@ -77,7 +77,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "SERVICE_ACCOUNT_PATH"
-            value = "/Users/a0000/Documents/gSync/gSync/google/gsync-v3-452921-6ad623682939.json"
+            value = "/Users/a0000/Documents/gSync/gsync-v3-452921-6ad623682939.json"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
