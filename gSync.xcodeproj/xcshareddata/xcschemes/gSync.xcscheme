@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme
+   LastUpgradeVersion = "1620"
+   version = "1.7">
+   <BuildAction
+      parallelizeBuildables = "YES"
+      buildImplicitDependencies = "YES"
+      buildArchitectures = "Automatic">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "872C1A802D78F7A300379F9D"
+               BuildableName = "gSync.app"
+               BlueprintName = "gSync"
+               ReferencedContainer = "container:gSync.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      shouldAutocreateTestPlan = "YES">
+      <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "872C1A912D78F7A600379F9D"
+               BuildableName = "gSyncTests.xctest"
+               BlueprintName = "gSyncTests"
+               ReferencedContainer = "container:gSync.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "872C1A9B2D78F7A600379F9D"
+               BuildableName = "gSyncUITests.xctest"
+               BlueprintName = "gSyncUITests"
+               ReferencedContainer = "container:gSync.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      launchStyle = "0"
+      useCustomWorkingDirectory = "NO"
+      ignoresPersistentStateOnLaunch = "NO"
+      debugDocumentVersioning = "YES"
+      debugServiceExtension = "internal"
+      allowLocationSimulation = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "872C1A802D78F7A300379F9D"
+            BuildableName = "gSync.app"
+            BlueprintName = "gSync"
+            ReferencedContainer = "container:gSync.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "SERVICE_ACCOUNT_PATH"
+            value = "/Users/a0000/Documents/gSync/gSync/google/gsync-v3-452921-cbe11b9fb913.json"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PYTHON_AUTH_SCRIPT_PATH"
+            value = "/Users/a0000/Documents/gSync/gSync/google/google_drive_auth.py"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PYTHON_LIST_FILES_SCRIPT_PATH"
+            value = "/Users/a0000/Documents/gSync/gSync/google/google_drive_list_files.py"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PYTHON_MD5"
+            value = "/Users/a0000/Documents/gSync/gSync/google/google_drive_check_md5.py"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PYTHON_UPLOAD_SCRIPT_PATH"
+            value = "/Users/a0000/Documents/gSync/gSync/google/google_drive_upload.py"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "GOOGLE_DRIVE_FOLDER_ID"
+            value = "187SHKndx8vxa7ViyJfcBHiPLBCKlC1Zi"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PYTHON_LIST_FOLDERS_SCRIPT_PATH"
+            value = "/Users/a0000/Documents/gSync/gSync/google/google_drive_list_folders.py"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PYTHON_CHECK_FILE_EXISTS_SCRIPT_PATH"
+            value = "/Users/a0000/Documents/gSync/gSync/google/google_drive_check_file_exists.py"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
+   </LaunchAction>
+   <ProfileAction
+      buildConfiguration = "Release"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      savedToolIdentifier = ""
+      useCustomWorkingDirectory = "NO"
+      debugDocumentVersioning = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "872C1A802D78F7A300379F9D"
+            BuildableName = "gSync.app"
+            BlueprintName = "gSync"
+            ReferencedContainer = "container:gSync.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction
+      buildConfiguration = "Debug">
+   </AnalyzeAction>
+   <ArchiveAction
+      buildConfiguration = "Release"
+      revealArchiveInOrganizer = "YES">
+   </ArchiveAction>
+</Scheme>
