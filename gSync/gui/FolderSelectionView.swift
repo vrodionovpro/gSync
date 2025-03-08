@@ -1,11 +1,13 @@
 import SwiftUI
-
+//1
 /// Представление для выбора папки на Google Drive.
-/// Отображает иерархию папок в виде дерева и позволяет выбрать папку для загрузки.
+/// Отображает иерархию папок в виде дерева и позволяет выбрать папку для синхронизации.
+/// Зависит от GoogleDriveManager для получения данных.
 struct FolderSelectionView: View {
-    @State private var folders: [Folder] = [] // Список корневых папок
+    @State private var folders: [RemoteFolder] = [] // Список корневых удалённых папок
     @State private var selectedFolderId: String = "" // Выбранный ID папки
     @EnvironmentObject var driveManager: GoogleDriveManager // Менеджер для работы с Google Drive
+    weak var windowController: FolderSelectionWindowController? // Ссылка на контроллер окна
 
     var body: some View {
         VStack {
@@ -39,7 +41,7 @@ struct FolderSelectionView: View {
             }
             // Кнопка для подтверждения выбора
             Button("Confirm") {
-                driveManager.setFolderId(selectedFolderId)
+                windowController?.setSelectedFolderId(selectedFolderId)
             }
             .disabled(folders.isEmpty)
         }
@@ -50,6 +52,7 @@ struct FolderSelectionView: View {
     }
 
     /// Загружает список папок с Google Drive.
+    /// Вызывает метод fetchFolders из GoogleDriveManager и обновляет состояние.
     private func loadFolders() {
         folders = driveManager.service.fetchFolders()
         print("Loaded folders in FolderSelectionView: \(folders)")
@@ -57,8 +60,9 @@ struct FolderSelectionView: View {
 }
 
 /// Рекурсивное представление для отображения папки и её дочерних папок.
+/// Позволяет разворачивать/сворачивать дерево и выбирать папку.
 struct FolderRow: View {
-    let folder: Folder
+    let folder: RemoteFolder // Используем RemoteFolder вместо Folder
     @Binding var selectedFolderId: String
     let level: Int // Уровень вложенности для отступа
     @State private var isExpanded: Bool = false // Состояние свёрнутости папки

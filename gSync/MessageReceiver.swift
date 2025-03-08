@@ -1,17 +1,25 @@
 import Foundation
 
+/// Класс для получения и обработки уведомлений о новых путях к папкам.
+/// Отвечает за инициализацию мониторинга и передачу путей в другие модули.
+/// Не зависит от GUI или конкретных сервисов.
 class MessageReceiver {
     static let shared = MessageReceiver()
     private let notificationCenter = DistributedNotificationCenter.default()
+    private var windowController: FolderSelectionWindowController?
 
     private init() {
         setupNotifications()
     }
 
+    /// Запускает прием уведомлений.
+    /// Логирует старт для отладки.
     func startReceivingMessages() {
         print("MessageReceiver начал прием уведомлений")
     }
 
+    /// Настраивает наблюдение за уведомлениями от внешнего скрипта.
+    /// При получении пути вызывает обработку.
     private func setupNotifications() {
         notificationCenter.addObserver(
             forName: NSNotification.Name("com.nato.gSync.newPath"),
@@ -26,14 +34,26 @@ class MessageReceiver {
         }
     }
 
+    /// Обрабатывает полученный путь к папке.
+    /// - Parameter path: Полный путь к локальной папке.
+    /// Вызывает окно выбора удалённой папки и сохраняет связь.
     func processPath(_ path: String) {
         let folderName = (path as NSString).lastPathComponent
-        MenuManager.shared.addFolderMenuItem(folderName: folderName, path: path) // Передаём полный путь
-        FolderManager.shared.addFolder(path: path) // Строим иерархию файлов и папок
+        MenuManager.shared.addFolderMenuItem(folderName: folderName, path: path) // Отображаем в меню
+        if let localFolder = FolderManager.shared.addFolder(path: path) { // Получаем иерархию
+            FolderServer.shared.addFolderPair(localFolder: localFolder, remoteId: nil) // Сохраняем локальную папку
+            showFolderSelectionWindow(for: localFolder) // Вызываем окно выбора
+        } else {
+            Logger.shared.log("Не удалось построить иерархию для пути: \(path)")
+        }
+    }
 
-        // Добавляем папку в FolderService
-        let folderPair = FolderPair(localPath: path, googleDriveFolderId: nil)
-        FolderService.shared.addFolderPair(folderPair)
+    /// Показывает окно выбора удалённой папки.
+    /// - Parameter localFolder: Локальная папка, для которой выбирается удалённая.
+    private func showFolderSelectionWindow(for localFolder: LocalFolder) {
+        windowController = FolderSelectionWindowController(driveManager: GoogleDriveManager.shared)
+        windowController?.localFolderId = localFolder.id
+        windowController?.showWindow(nil)
     }
 
     deinit {

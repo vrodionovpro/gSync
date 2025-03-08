@@ -1,5 +1,8 @@
 import Foundation
 
+/// Сервис для взаимодействия с Google Drive API через Python-скрипты.
+/// Реализует GoogleDriveInterface для выполнения операций, таких как авторизация, получение списка папок,
+/// загрузка файлов и проверка существования файлов.
 class GoogleDriveService: GoogleDriveInterface {
     static let shared = GoogleDriveService()
     private let config = EnvironmentConfig.shared
@@ -32,6 +35,8 @@ class GoogleDriveService: GoogleDriveInterface {
 
     // MARK: - GoogleDriveInterface Methods
 
+    /// Выполняет авторизацию через Python-скрипт.
+    /// - Returns: Успешность авторизации.
     func authenticate() -> Bool {
         let (output, success) = runPythonScript(config.pythonAuthScriptPath, arguments: [config.serviceAccountPath])
         if let output = output {
@@ -41,6 +46,8 @@ class GoogleDriveService: GoogleDriveInterface {
         return success
     }
 
+    /// Получает список файлов через Python-скрипт.
+    /// - Returns: Успешность операции.
     func listFiles() -> Bool {
         let (output, success) = runPythonScript(config.pythonListFilesScriptPath, arguments: [config.serviceAccountPath])
         if let output = output {
@@ -50,6 +57,9 @@ class GoogleDriveService: GoogleDriveInterface {
         return success
     }
 
+    /// Вычисляет MD5-хеш файла через Python-скрипт.
+    /// - Parameter filePath: Путь к файлу.
+    /// - Returns: Успешность операции.
     func calculateMD5(filePath: String) -> Bool {
         let (output, success) = runPythonScript(config.pythonMD5ScriptPath, arguments: [filePath])
         if let output = output {
@@ -59,6 +69,12 @@ class GoogleDriveService: GoogleDriveInterface {
         return success
     }
 
+    /// Загружает файл в Google Drive асинхронно через Python-скрипт.
+    /// - Parameters:
+    ///   - filePath: Путь к локальному файлу.
+    ///   - fileName: Имя файла.
+    ///   - folderId: Идентификатор целевой папки (опционально).
+    ///   - completion: Замыкание для возврата результата.
     func uploadFile(filePath: String, fileName: String, folderId: String?, completion: @escaping (Bool) -> Void) {
         guard let folderId = folderId else {
             print("No folder ID provided")
@@ -90,6 +106,8 @@ class GoogleDriveService: GoogleDriveInterface {
         }
     }
 
+    /// Получает список папок через Python-скрипт (без разбора структуры).
+    /// - Returns: Успешность операции.
     func listFolders() -> Bool {
         let (output, success) = runPythonScript(config.pythonListFoldersScriptPath, arguments: [config.serviceAccountPath])
         if let output = output {
@@ -99,8 +117,9 @@ class GoogleDriveService: GoogleDriveInterface {
         return success
     }
 
-    /// Возвращает иерархию папок в виде списка корневых папок.
-    func fetchFolders() -> [Folder] {
+    /// Возвращает иерархию папок Google Drive в виде списка корневых папок.
+    /// - Returns: Массив удалённых папок.
+    func fetchFolders() -> [RemoteFolder] {
         let (output, success) = runPythonScript(config.pythonListFoldersScriptPath, arguments: [config.serviceAccountPath])
         print("fetchFolders output: \(String(describing: output))")
         print("fetchFolders success: \(success)")
@@ -111,7 +130,7 @@ class GoogleDriveService: GoogleDriveInterface {
 
         do {
             let decoder = JSONDecoder()
-            let folders = try decoder.decode([Folder].self, from: jsonData)
+            let folders = try decoder.decode([RemoteFolder].self, from: jsonData)
             print("Parsed folders: \(folders)")
             print("Total root folders: \(folders.count)")
             let totalFolders = countFolders(folders)
@@ -124,7 +143,9 @@ class GoogleDriveService: GoogleDriveInterface {
     }
 
     /// Подсчитывает общее количество папок, включая вложенные.
-    private func countFolders(_ folders: [Folder]) -> Int {
+    /// - Parameter folders: Массив удалённых папок.
+    /// - Returns: Общее количество папок.
+    private func countFolders(_ folders: [RemoteFolder]) -> Int {
         var count = folders.count
         for folder in folders {
             if let children = folder.children {
@@ -134,6 +155,11 @@ class GoogleDriveService: GoogleDriveInterface {
         return count
     }
 
+    /// Проверяет существование файла по MD5 (заглушка).
+    /// - Parameters:
+    ///   - md5: MD5-хеш файла.
+    ///   - folderId: Идентификатор папки.
+    /// - Returns: Пока всегда false (заглушка).
     func checkFileExistsByMD5(md5: String, folderId: String) -> Bool {
         return false
     }

@@ -25,11 +25,11 @@ struct gSyncApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        _ = FolderService.shared
+        _ = FolderServer.shared
         _ = MenuManager.shared
         _ = MessageReceiver.shared
         _ = StatusOverlay.shared // Теперь работает
-        //_ = GoogleDriveService.shared
+        _ = GoogleDriveService.shared
         
         print("Application launched")
         MessageReceiver.shared.startReceivingMessages()
@@ -37,10 +37,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Запускаем операции с Google Drive через GoogleDriveManager
         //let manager = GoogleDriveManager()
         //let filesToUpload = [
-        //    (filePath: "/Users/a0000/Documents/file1.txt", fileName: "file1.txt"),
-        //    (filePath: "/Users/a0000/Documents/file2.txt", fileName: "file2.txt")
-        //] // Замени на реальные пути
-        //manager.performGoogleDriveOperations(filesToUpload: filesToUpload)
+//            (filePath: "/Users/a0000/Documents/file1.txt", fileName: "file1.txt"),
+  //          (filePath: "/Users/a0000/Documents/file2.txt", fileName: "file2.txt")
+    //    ] // Замени на реальные пути
+      //  manager.performGoogleDriveOperations(filesToUpload: filesToUpload)
     }
 
     func application(_ app: NSApplication, open urls: [URL]) {

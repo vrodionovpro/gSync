@@ -1,5 +1,8 @@
 import Cocoa
 
+/// Класс для управления системным меню приложения.
+/// Отвечает за отображение иконки, пунктов меню и динамического обновления списка папок.
+/// Не зависит от внутренней логики хранения папок.
 class MenuManager: NSObject {
     static let shared = MenuManager()
     private var statusMenu: NSMenu!
@@ -13,6 +16,7 @@ class MenuManager: NSObject {
         setupStatusBarAppearance()
     }
 
+    /// Инициализирует базовое меню с фиксированными пунктами.
     private func setupMenu() {
         statusMenu = NSMenu(title: "gSync")
 
@@ -29,6 +33,7 @@ class MenuManager: NSObject {
         statusMenu.delegate = self
     }
 
+    /// Настраивает внешний вид иконки в статус-баре.
     private func setupStatusBarAppearance() {
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "gSync Settings")
@@ -36,6 +41,10 @@ class MenuManager: NSObject {
         }
     }
 
+    /// Добавляет пункт меню для папки с её иерархией.
+    /// - Parameters:
+    ///   - folderName: Имя папки для отображения.
+    ///   - path: Полный путь к папке для получения иерархии.
     func addFolderMenuItem(folderName: String, path: String) {
         if !statusMenu.items.contains(where: { $0.title == folderName }) {
             let menuItem = NSMenuItem(title: folderName, action: nil, keyEquivalent: "")
@@ -48,7 +57,11 @@ class MenuManager: NSObject {
         }
     }
 
-    private func buildSubMenu(from node: FileNode, into menu: NSMenu) {
+    /// Рекурсивно строит подменю на основе иерархии локальной папки.
+    /// - Parameters:
+    ///   - node: Узел иерархии.
+    ///   - menu: Меню для добавления пунктов.
+    private func buildSubMenu(from node: LocalFolder, into menu: NSMenu) {
         let item = NSMenuItem(title: node.name, action: nil, keyEquivalent: "")
         if node.isDirectory, let children = node.children, !children.isEmpty {
             let subMenu = NSMenu(title: node.name)
@@ -74,13 +87,14 @@ class MenuManager: NSObject {
 }
 
 extension MenuManager: NSMenuDelegate {
+    /// Обновляет меню перед его открытием, добавляя все папки из FolderServer.
     func menuWillOpen(_ menu: NSMenu) {
         while statusMenu.items.count > 2 {
             statusMenu.removeItem(at: 1)
         }
 
-        for folderPair in FolderService.shared.folders.values { // Исправлено на "folders"
-            addFolderMenuItem(folderName: (folderPair.localPath as NSString).lastPathComponent, path: folderPair.localPath)
+        for pair in FolderServer.shared.getAllFolderPairs() {
+            addFolderMenuItem(folderName: pair.local.name, path: pair.local.path)
         }
     }
 }
