@@ -3,7 +3,7 @@ import Foundation
 /// Менеджер для управления операциями с Google Drive.
 /// Использует полиморфизм через протокол GoogleDriveInterface для выполнения операций.
 class GoogleDriveManager: ObservableObject {
-    static let shared = GoogleDriveManager() // Добавляем синглтон
+    static let shared = GoogleDriveManager()
     private let driveService: GoogleDriveInterface
     private var filesToUpload: [(filePath: String, fileName: String)] = []
     private var windowController: FolderSelectionWindowController?
@@ -46,33 +46,6 @@ class GoogleDriveManager: ObservableObject {
         group.notify(queue: .main) { [weak self] in
             print("All uploads completed")
             self?.windowController?.close()
-        }
-    }
-
-    /// Устанавливает связь между локальной и удалённой папкой.
-    /// - Parameters:
-    ///   - localFolderId: Идентификатор локальной папки.
-    ///   - remoteFolderId: Идентификатор удалённой папки.
-    func linkFolders(localFolderId: UUID, remoteFolderId: String) {
-        if let localFolder = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localFolderId })?.local {
-            FolderServer.shared.addFolderPair(localFolder: localFolder, remoteId: remoteFolderId)
-            Logger.shared.log("Связана локальная папка \(localFolderId) с remoteId: \(remoteFolderId)")
-            // Передаём файлы для загрузки
-            populateFilesToUpload(from: localFolder)
-        }
-    }
-
-    /// Заполняет filesToUpload рекурсивно из локальной папки.
-    /// - Parameter folder: Локальная папка для синхронизации.
-    private func populateFilesToUpload(from folder: LocalFolder) {
-        if let children = folder.children {
-            for child in children {
-                if child.isDirectory {
-                    populateFilesToUpload(from: child) // Рекурсия для подпапок
-                } else {
-                    filesToUpload.append((filePath: child.path, fileName: child.name))
-                }
-            }
         }
     }
 }

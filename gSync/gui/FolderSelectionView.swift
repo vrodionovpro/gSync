@@ -1,5 +1,5 @@
 import SwiftUI
-//1
+
 /// Представление для выбора папки на Google Drive.
 /// Отображает иерархию папок в виде дерева и позволяет выбрать папку для синхронизации.
 /// Зависит от GoogleDriveManager для получения данных.
@@ -7,7 +7,7 @@ struct FolderSelectionView: View {
     @State private var folders: [RemoteFolder] = [] // Список корневых удалённых папок
     @State private var selectedFolderId: String = "" // Выбранный ID папки
     @EnvironmentObject var driveManager: GoogleDriveManager // Менеджер для работы с Google Drive
-    weak var windowController: FolderSelectionWindowController? // Ссылка на контроллер окна
+    weak var windowController: FolderSelectionWindowController?
 
     var body: some View {
         VStack {
@@ -41,7 +41,13 @@ struct FolderSelectionView: View {
             }
             // Кнопка для подтверждения выбора
             Button("Confirm") {
-                windowController?.setSelectedFolderId(selectedFolderId)
+                print("Confirm button pressed, selectedFolderId: \(selectedFolderId)")
+                if let controller = windowController {
+                    print("windowController is set, calling setSelectedFolderId")
+                    controller.setSelectedFolderId(selectedFolderId)
+                } else {
+                    print("windowController is nil, cannot set selected folder ID")
+                }
             }
             .disabled(folders.isEmpty)
         }

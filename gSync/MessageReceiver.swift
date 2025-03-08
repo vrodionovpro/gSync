@@ -10,6 +10,7 @@ class MessageReceiver {
 
     private init() {
         setupNotifications()
+        setupWindowCloseObserver()
     }
 
     /// Запускает прием уведомлений.
@@ -34,6 +35,18 @@ class MessageReceiver {
         }
     }
 
+    /// Настраивает наблюдение за закрытием окна FolderSelectionWindow.
+    private func setupWindowCloseObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("FolderSelectionWindowClosed"),
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.windowController = nil
+            Logger.shared.log("FolderSelectionWindowController очищен")
+        }
+    }
+
     /// Обрабатывает полученный путь к папке.
     /// - Parameter path: Полный путь к локальной папке.
     /// Вызывает окно выбора удалённой папки и сохраняет связь.
@@ -51,12 +64,18 @@ class MessageReceiver {
     /// Показывает окно выбора удалённой папки.
     /// - Parameter localFolder: Локальная папка, для которой выбирается удалённая.
     private func showFolderSelectionWindow(for localFolder: LocalFolder) {
-        windowController = FolderSelectionWindowController(driveManager: GoogleDriveManager.shared)
-        windowController?.localFolderId = localFolder.id
-        windowController?.showWindow(nil)
+        if GoogleDriveService.shared.authenticate() {
+            windowController = FolderSelectionWindowController(driveManager: GoogleDriveManager.shared)
+            windowController?.localFolderId = localFolder.id
+            windowController?.showWindow(nil)
+            print("FolderSelectionWindow opened for localFolder: \(localFolder.path)")
+        } else {
+            Logger.shared.log("Ошибка авторизации перед открытием окна выбора папки")
+        }
     }
 
     deinit {
         notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
     }
 }

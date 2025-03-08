@@ -1,5 +1,5 @@
 import Cocoa
-import SwiftUI // Добавляем импорт SwiftUI для NSHostingController
+import SwiftUI
 
 /// Контроллер окна для выбора удалённой папки.
 /// Управляет отображением FolderSelectionView и связыванием с локальной папкой.
@@ -17,7 +17,10 @@ class FolderSelectionWindowController: NSWindowController {
         )
         window.center()
         window.title = "Select Remote Folder"
-        window.contentViewController = NSHostingController(rootView: FolderSelectionView().environmentObject(driveManager))
+        let contentView = FolderSelectionView()
+            .environmentObject(driveManager) // Передаём driveManager как environmentObject
+        let hostingController = NSHostingController(rootView: contentView)
+        window.contentViewController = hostingController
         super.init(window: window)
     }
 
@@ -33,16 +36,35 @@ class FolderSelectionWindowController: NSWindowController {
     /// Сохраняет выбранный remoteId и связывает с локальной папкой.
     func setSelectedFolderId(_ remoteId: String) {
         if let localId = localFolderId {
-            driveManager.linkFolders(localFolderId: localId, remoteFolderId: remoteId)
-            driveManager.performGoogleDriveOperations(filesToUpload: []) // Запускаем процесс с пустым списком для открытия окна
+            // Простая связь через FolderServer
+            if let localFolder = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localId })?.local {
+                FolderServer.shared.addFolderPair(localFolder: localFolder, remoteId: remoteId)
+                Logger.shared.log("Связана локальная папка \(localId) с remoteId: \(remoteId)")
+                // Запускаем загрузку файлов
+                driveManager.performGoogleDriveOperations(filesToUpload: getFilesFromLocalFolder(localFolder))
+            }
             window?.close()
         }
+    }
+
+    /// Извлекает список файлов из локальной папки для загрузки.
+    private func getFilesFromLocalFolder(_ folder: LocalFolder) -> [(filePath: String, fileName: String)] {
+        var files: [(filePath: String, fileName: String)] = []
+        if let children = folder.children {
+            for child in children {
+                if child.isDirectory {
+                    files.append(contentsOf: getFilesFromLocalFolder(child))
+                } else {
+                    files.append((filePath: child.path, fileName: child.name))
+                }
+            }
+        }
+        return files
     }
 }
 
 extension FolderSelectionWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
-        // Удаляем ссылку на windowController в MessageReceiver через уведомление
         NotificationCenter.default.post(name: NSNotification.Name("FolderSelectionWindowClosed"), object: nil)
     }
 }
