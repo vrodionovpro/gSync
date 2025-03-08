@@ -65,8 +65,7 @@ class MessageReceiver {
     /// - Parameter localFolder: Локальная папка, для которой выбирается удалённая.
     private func showFolderSelectionWindow(for localFolder: LocalFolder) {
         if GoogleDriveService.shared.authenticate() {
-            windowController = FolderSelectionWindowController(driveManager: GoogleDriveManager.shared)
-            windowController?.localFolderId = localFolder.id
+            windowController = FolderSelectionWindowController(driveManager: GoogleDriveManager.shared, localFolderId: localFolder.id)
             windowController?.showWindow(nil)
             print("FolderSelectionWindow opened for localFolder: \(localFolder.path)")
         } else {
