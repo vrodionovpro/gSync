@@ -47,7 +47,7 @@ struct FolderSelectionView: View {
             }
             // Кнопка для подтверждения выбора
             Button("Confirm") {
-                print("Confirm button pressed, selectedFolderId: \(selectedFolderId)")
+                print("Confirm button pressed, selectedFolderId: \(selectedFolderId)") // Логируем выбор
                 if !selectedFolderId.isEmpty {
                     // Сохраняем выбранный folderId в UserDefaults
                     UserDefaults.standard.set(selectedFolderId, forKey: "LastSelectedFolderId")
@@ -63,7 +63,7 @@ struct FolderSelectionView: View {
         }
         .frame(width: 300, height: 400)
         .onAppear {
-            loadFolders()
+            loadFolders() // Загружаем папки при появлении
             // Загружаем последнюю выбранную папку из UserDefaults
             if let lastSelectedFolderId = UserDefaults.standard.string(forKey: "LastSelectedFolderId") {
                 selectedFolderId = lastSelectedFolderId
@@ -71,10 +71,13 @@ struct FolderSelectionView: View {
         }
     }
 
-    /// Загружает список папок с Google Drive.
+    /// Загружает список папок с Google Drive и выводит сжатую информацию.
     private func loadFolders() {
         folders = driveManager.service.fetchFolders()
-        print("Loaded folders in FolderSelectionView: \(folders)")
+        let rootCount = folders.count
+        let totalCount = folders.reduce(0) { $0 + (1 + ($1.children?.count ?? 0)) } // Примерное количество
+        let sampleNames = folders.prefix(3).map { $0.name }.joined(separator: ", ")
+        print("Loaded folders: \(rootCount) root folder(s), \(totalCount) total folder(s) (e.g., \(sampleNames))") // Сжатый вывод
     }
 }
 

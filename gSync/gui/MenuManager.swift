@@ -1,100 +1,100 @@
-import Cocoa
+import AppKit
 
-/// Класс для управления системным меню приложения.
-/// Отвечает за отображение иконки, пунктов меню и динамического обновления списка папок.
-/// Не зависит от внутренней логики хранения папок.
-class MenuManager: NSObject {
+/// Менеджер для управления меню приложения.
+/// Отвечает за создание и обновление элементов меню для папок и файлов.
+class MenuManager {
     static let shared = MenuManager()
-    private var statusMenu: NSMenu!
-    private let statusItem: NSStatusItem
+    var statusItem: NSStatusItem? // Публичный доступ для других компонентов
+    private var foldersMenu: NSMenu?
+    private var folderItems: [String: NSMenuItem] = [:]
+    private var fileItems: [String: NSMenuItem] = [:] // Храним элементы меню для файлов
 
-    override init() {
+    private init() {
+        setupStatusItem()
+        setupProgressObserver()
+    }
+
+    /// Настраивает статусный элемент в системном меню.
+    private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        super.init()
-        setupMenu()
-        statusItem.menu = statusMenu
-        setupStatusBarAppearance()
+        if let button = statusItem?.button {
+            button.title = "gSync"
+        }
+        let menu = NSMenu()
+        foldersMenu = NSMenu()
+        menu.addItem(withTitle: "Folders", action: nil, keyEquivalent: "")
+        menu.setSubmenu(foldersMenu, for: menu.item(withTitle: "Folders")!)
+        menu.addItem(withTitle: "Quit", action: #selector(quit), keyEquivalent: "q")
+        statusItem?.menu = menu
     }
 
-    /// Инициализирует базовое меню с фиксированными пунктами.
-    private func setupMenu() {
-        statusMenu = NSMenu(title: "gSync")
-
-        let syncItem = NSMenuItem(title: "Sync with Google Drive", action: #selector(syncWithGoogleDrive), keyEquivalent: "")
-        syncItem.target = self
-        statusMenu.addItem(syncItem)
-
-        statusMenu.addItem(NSMenuItem.separator())
-
-        let quitItem = NSMenuItem(title: "Quit gSync", action: #selector(quitApp), keyEquivalent: "q")
-        quitItem.target = self
-        statusMenu.addItem(quitItem)
-
-        statusMenu.delegate = self
-    }
-
-    /// Настраивает внешний вид иконки в статус-баре.
-    private func setupStatusBarAppearance() {
-        if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "gSync Settings")
-            button.imagePosition = .imageLeading
+    /// Настраивает наблюдение за уведомлениями о прогрессе загрузки.
+    private func setupProgressObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("UploadProgressUpdate"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let fileName = notification.userInfo?["fileName"] as? String,
+                  let progressLine = notification.userInfo?["progress"] as? String else { return }
+            
+            // Извлекаем процент прогресса из строки PROGRESS:X%
+            let progress = progressLine.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
+            if let fileItem = self.fileItems[fileName] {
+                fileItem.title = "\(fileName) (\(progress)%)" // Обновляем заголовок файла с прогрессом
+            }
         }
     }
 
-    /// Добавляет пункт меню для папки с её иерархией.
+    /// Добавляет элемент меню для новой папки и её содержимого.
     /// - Parameters:
-    ///   - folderName: Имя папки для отображения.
-    ///   - path: Полный путь к папке для получения иерархии.
+    ///   - folderName: Название папки.
+    ///   - path: Путь к папке.
     func addFolderMenuItem(folderName: String, path: String) {
-        if !statusMenu.items.contains(where: { $0.title == folderName }) {
-            let menuItem = NSMenuItem(title: folderName, action: nil, keyEquivalent: "")
-            if let contents = FolderManager.shared.getContents(for: path) {
-                let subMenu = NSMenu(title: folderName)
-                buildSubMenu(from: contents, into: subMenu)
-                menuItem.submenu = subMenu
-            }
-            statusMenu.insertItem(menuItem, at: 1)
+        let folderItem = NSMenuItem(title: folderName, action: nil, keyEquivalent: "")
+        let folderSubmenu = NSMenu()
+        folderItem.submenu = folderSubmenu
+        folderItems[folderName] = folderItem
+
+        if let localFolder = FolderManager.shared.addFolder(path: path) {
+            addFilesToMenu(localFolder: localFolder, folderSubmenu: folderSubmenu)
         }
+
+        foldersMenu?.addItem(folderItem)
     }
 
-    /// Рекурсивно строит подменю на основе иерархии локальной папки.
+    /// Добавляет файлы из локальной папки в подменю.
     /// - Parameters:
-    ///   - node: Узел иерархии.
-    ///   - menu: Меню для добавления пунктов.
-    private func buildSubMenu(from node: LocalFolder, into menu: NSMenu) {
-        let item = NSMenuItem(title: node.name, action: nil, keyEquivalent: "")
-        if node.isDirectory, let children = node.children, !children.isEmpty {
-            let subMenu = NSMenu(title: node.name)
+    ///   - localFolder: Локальная папка с файлами.
+    ///   - folderSubmenu: Подменю для добавления файлов.
+    private func addFilesToMenu(localFolder: LocalFolder, folderSubmenu: NSMenu) {
+        if let children = localFolder.children {
             for child in children {
-                buildSubMenu(from: child, into: subMenu)
+                if !child.isDirectory {
+                    let fileItem = NSMenuItem(title: child.name, action: nil, keyEquivalent: "")
+                    folderSubmenu.addItem(fileItem)
+                    fileItems[child.name] = fileItem // Сохраняем элемент для обновления прогресса
+                } else if let subChildren = child.children {
+                    // Рекурсивно добавляем файлы из подпапок без создания лишнего уровня
+                    for subChild in subChildren {
+                        if !subChild.isDirectory {
+                            let fileItem = NSMenuItem(title: subChild.name, action: nil, keyEquivalent: "")
+                            folderSubmenu.addItem(fileItem)
+                            fileItems[subChild.name] = fileItem // Сохраняем элемент для обновления прогресса
+                        }
+                    }
+                }
             }
-            item.submenu = subMenu
         }
-        menu.addItem(item)
     }
 
-    @objc private func syncWithGoogleDrive() {
-        NSApp.sendAction(#selector(FolderSelectionWindowController.showWindow(_:)), to: nil, from: self)
+    /// Завершает работу приложения.
+    @objc private func quit() {
+        NSApplication.shared.terminate(nil)
     }
 
-    @objc private func quitApp() {
-        NSApplication.shared.terminate(self)
-    }
-
-    var menuStatusItem: NSStatusItem {
-        return statusItem
-    }
-}
-
-extension MenuManager: NSMenuDelegate {
-    /// Обновляет меню перед его открытием, добавляя все папки из FolderServer.
-    func menuWillOpen(_ menu: NSMenu) {
-        while statusMenu.items.count > 2 {
-            statusMenu.removeItem(at: 1)
-        }
-
-        for pair in FolderServer.shared.getAllFolderPairs() {
-            addFolderMenuItem(folderName: pair.local.name, path: pair.local.path)
-        }
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }

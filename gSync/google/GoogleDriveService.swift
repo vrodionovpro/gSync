@@ -84,14 +84,16 @@ class GoogleDriveService: GoogleDriveInterface {
         return success
     }
 
-    func uploadFile(filePath: String, fileName: String, folderId: String?, completion: @escaping (Bool) -> Void) {
+    func uploadFile(filePath: String, fileName: String, folderId: String?, progressHandler: ((String) -> Void)?, completion: @escaping (Bool) -> Void) {
         guard let folderId = folderId else {
             print("No folder ID provided")
             DispatchQueue.main.async { completion(false) }
             return
         }
 
-        let (checkOutput, checkSuccess) = runPythonScript(config.pythonCheckFileExistsScriptPath, arguments: [config.serviceAccountPath, fileName, folderId]) { _ in }
+        let (checkOutput, checkSuccess) = runPythonScript(config.pythonCheckFileExistsScriptPath, arguments: [config.serviceAccountPath, fileName, folderId]) { progress in
+            progressHandler?(progress) // Передача прогресса, если обработчик задан
+        }
         if let checkOutput = checkOutput {
             print("File existence check output: \(checkOutput)")
             if checkOutput.contains("already exists") {
@@ -104,10 +106,8 @@ class GoogleDriveService: GoogleDriveInterface {
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.config.serviceAccountPath, filePath, fileName, folderId]) { progressLine in
-                if progressLine.hasPrefix("PROGRESS:") {
-                    print("Received progress: \(progressLine)") // Логируем прогресс
-                }
+            let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.config.serviceAccountPath, filePath, fileName, folderId]) { progress in
+                progressHandler?(progress) // Передача прогресса во время загрузки
             }
             if let output = output {
                 print("Python output: \(output)")

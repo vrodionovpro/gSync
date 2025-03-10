@@ -40,7 +40,7 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
             if status:
                 uploaded_size = status.resumable_progress
                 current_time = time.time()
-                if current_time - last_progress_time >= 10:  # Обновление прогресса каждые 10 секунд
+                if current_time - last_progress_time >= 5:  # Обновление прогресса каждые 5 секунд (было 10)
                     progress = int((uploaded_size / file_size) * 100)
                     print(f"PROGRESS:{progress}%", flush=True)  # Отправка прогресса
                     last_progress_time = current_time

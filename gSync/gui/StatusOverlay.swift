@@ -1,41 +1,52 @@
-import SwiftUI
+import AppKit
 
-class StatusOverlay: ObservableObject {
-    static let shared = StatusOverlay() // Добавляем синглтон
-    @Published var isVisible = false
-    @Published var message = ""
-    @Published var progress: Double = 0.0
+/// Слой наложения для отображения статусного текста над статусным элементом меню.
+class StatusOverlay: NSView {
+    private static var sharedInstance: StatusOverlay?
+    private var textField: NSTextField?
+    private static let overlayFrame = NSRect(x: 0, y: 0, width: 100, height: 20) // Стандартный размер
 
-    private init() {
-        // Приватный инициализатор, чтобы гарантировать использование только shared
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        setup()
     }
 
-    func show(message: String, duration: TimeInterval = 2.0) {
-        self.message = message
-        self.isVisible = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
-            self.isVisible = false
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    /// Возвращает единственный экземпляр StatusOverlay (паттерн синглтон).
+    static var shared: StatusOverlay {
+        if sharedInstance == nil {
+            if let statusItem = MenuManager.shared.statusItem, let button = statusItem.button {
+                sharedInstance = StatusOverlay(frame: button.bounds)
+                button.addSubview(sharedInstance!)
+                sharedInstance?.frame = button.bounds
+            } else {
+                sharedInstance = StatusOverlay(frame: overlayFrame) // Фallback, если statusItem ещё не готов
+            }
         }
+        return sharedInstance!
     }
 
-    func updateProgress(_ progress: Double) {
-        DispatchQueue.main.async {
-            self.progress = min(max(progress, 0.0), 1.0)
+    private func setup() {
+        // Создаём текстовое поле для отображения статуса
+        textField = NSTextField(frame: bounds)
+        textField?.isEditable = false
+        textField?.isBezeled = false
+        textField?.backgroundColor = .clear
+        textField?.textColor = .white
+        textField?.font = NSFont.systemFont(ofSize: 12)
+        textField?.alignment = .center
+        if let textField = textField {
+            addSubview(textField)
         }
+        updateStatus("Ready") // Устанавливаем начальный статус
     }
 
-    func bindToStatusItem() {
-        let statusItem = MenuManager.shared.menuStatusItem
-        if let button = statusItem.button {
-            print("Привязка к статус-бару выполнена для кнопки: \(button)")
-        } else {
-            print("Ошибка: Кнопка статус-бара не найдена")
-        }
-    }
-
-    func showWithProgress(message: String, progress: Double) {
-        self.message = message
-        self.isVisible = true
-        self.updateProgress(progress)
+    /// Обновляет текст статуса.
+    func updateStatus(_ status: String) {
+        textField?.stringValue = status
     }
 }

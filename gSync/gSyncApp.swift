@@ -28,19 +28,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = FolderServer.shared
         _ = MenuManager.shared
         _ = MessageReceiver.shared
-        _ = StatusOverlay.shared // Теперь работает
+        _ = StatusOverlay.shared // Инициализируем StatusOverlay как синглтон
         _ = GoogleDriveService.shared
         
         print("Application launched")
         MessageReceiver.shared.startReceivingMessages()
 
+        // Закомментированный код для тестирования оставим как есть
+        /*
         // Запускаем операции с Google Drive через GoogleDriveManager
-        //let manager = GoogleDriveManager()
-        //let filesToUpload = [
-//            (filePath: "/Users/a0000/Documents/file1.txt", fileName: "file1.txt"),
-  //          (filePath: "/Users/a0000/Documents/file2.txt", fileName: "file2.txt")
-    //    ] // Замени на реальные пути
-      //  manager.performGoogleDriveOperations(filesToUpload: filesToUpload)
+        let manager = GoogleDriveManager()
+        let filesToUpload = [
+            (filePath: "/Users/a0000/Documents/file1.txt", fileName: "file1.txt"),
+            (filePath: "/Users/a0000/Documents/file2.txt", fileName: "file2.txt")
+        ] // Замени на реальные пути
+        manager.performGoogleDriveOperations(filesToUpload: filesToUpload)
+        */
     }
 
     func application(_ app: NSApplication, open urls: [URL]) {
