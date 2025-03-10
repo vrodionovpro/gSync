@@ -4,10 +4,12 @@ import AppKit
 class FolderSelectionWindowController: NSWindowController {
     let driveManager: GoogleDriveManager
     var localFolderId: UUID? // Идентификатор локальной папки для связи
+    let localFolderPath: String // Путь к локальной папке для отображения
 
-    init(driveManager: GoogleDriveManager, localFolderId: UUID? = nil) {
+    init(driveManager: GoogleDriveManager, localFolderId: UUID? = nil, localFolderPath: String = "") {
         self.driveManager = driveManager
         self.localFolderId = localFolderId
+        self.localFolderPath = localFolderPath
         
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 200),
@@ -19,7 +21,7 @@ class FolderSelectionWindowController: NSWindowController {
         window.title = "Select Google Drive Folder"
         
         let hostingController = NSHostingController(
-            rootView: FolderSelectionView(localFolderId: localFolderId) // Передаём localFolderId
+            rootView: FolderSelectionView(localFolderId: localFolderId, localFolderPath: localFolderPath)
                 .environmentObject(driveManager)
         )
         window.contentViewController = hostingController

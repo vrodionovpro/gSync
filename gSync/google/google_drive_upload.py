@@ -1,30 +1,68 @@
+import os
 import sys
-from google.oauth2 import service_account
+import google.auth
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
+import io
+import time
 
-def upload_file(json_path, file_path, file_name, folder_id=None):
+def upload_file(service_account_path, file_path, file_name, folder_id):
+    # Аутентификация
+    credentials, _ = google.auth.load_credentials_from_file(service_account_path)
+    drive_service = build('drive', 'v3', credentials=credentials)
+
     try:
-        SCOPES = ['https://www.googleapis.com/auth/drive']
-        creds = service_account.Credentials.from_service_account_file(json_path, scopes=SCOPES)
-        service = build('drive', 'v3', credentials=creds)
-        file_metadata = {
-            'name': file_name,
-            'parents': [folder_id] if folder_id else []  # Указываем родительскую папку, если задан ID
-        }
-        media = MediaFileUpload(file_path)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        print(f"File uploaded with ID: {file.get('id')}")
+        # Проверка существования файла
+        query = f"name='{file_name}' and '{folder_id}' in parents"
+        results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+        if results.get('files', []):
+            print(f"already exists")
+            return False
+
+        # Настройки для resumable upload
+        CHUNK_SIZE = 256 * 1024 * 1024  # 256 MB chunks
+        file_size = os.path.getsize(file_path)
+        media = MediaFileUpload(file_path,
+                              chunksize=CHUNK_SIZE,
+                              resumable=True)
+
+        # Инициализация загрузки
+        request = drive_service.files().create(
+            body={'name': file_name, 'parents': [folder_id]},
+            media_body=media,
+            fields='id'
+        )
+        response = None
+        uploaded_size = 0
+        last_progress_time = time.time()
+
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                uploaded_size = status.resumable_progress
+                current_time = time.time()
+                if current_time - last_progress_time >= 10:  # Обновление каждые 10 секунд
+                    progress = int((uploaded_size / file_size) * 100)
+                    print(f"PROGRESS:{progress}%", flush=True)  # Отправка прогресса
+                    last_progress_time = current_time
+            time.sleep(1)  # Пауза для стабильности
+
+        print(f"Upload completed with file ID: {response.get('id')}")
         return True
+
     except Exception as e:
         print(f"Error: {str(e)}")
         return False
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (4, 5):  # 4 аргумента без folder_id, 5 с folder_id
-        print("Usage: python google_drive_upload.py <path_to_service_account_json> <path_to_file> <file_name> [folder_id]")
+    if len(sys.argv) != 5:
+        print("Usage: python google_drive_upload.py <service_account_path> <file_path> <file_name> <folder_id>")
         sys.exit(1)
-    json_path, file_path, file_name = sys.argv[1], sys.argv[2], sys.argv[3]
-    folder_id = sys.argv[4] if len(sys.argv) == 5 else None
-    success = upload_file(json_path, file_path, file_name, folder_id)
+
+    service_account_path = sys.argv[1]
+    file_path = sys.argv[2]
+    file_name = sys.argv[3]
+    folder_id = sys.argv[4]
+
+    success = upload_file(service_account_path, file_path, file_name, folder_id)
     sys.exit(0 if success else 1)

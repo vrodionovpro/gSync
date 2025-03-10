@@ -6,10 +6,17 @@ struct FolderSelectionView: View {
     @State private var folders: [RemoteFolder] = [] // Список корневых папок
     @State private var selectedFolderId: String = "" // Выбранный ID папки
     @EnvironmentObject var driveManager: GoogleDriveManager // Менеджер для работы с Google Drive
-    var localFolderId: UUID? // Добавляем параметр для localFolderId
+    var localFolderId: UUID? // Идентификатор локальной папки
+    var localFolderPath: String // Путь к локальной папке для отображения
 
     var body: some View {
         VStack {
+            // Отображаем путь к локальной папке вверху
+            Text("Local Folder: \(localFolderPath)")
+                .font(.headline)
+                .padding(.top, 10)
+                .padding(.bottom, 5)
+
             if folders.isEmpty {
                 Text("No folders available")
             } else {
@@ -42,7 +49,12 @@ struct FolderSelectionView: View {
             Button("Confirm") {
                 print("Confirm button pressed, selectedFolderId: \(selectedFolderId)")
                 if !selectedFolderId.isEmpty {
-                    driveManager.setFolderId(selectedFolderId, localFolderId: localFolderId) // Передаём localFolderId
+                    // Сохраняем выбранный folderId в UserDefaults
+                    UserDefaults.standard.set(selectedFolderId, forKey: "LastSelectedFolderId")
+                    // Запускаем загрузку
+                    driveManager.setFolderId(selectedFolderId, localFolderId: localFolderId)
+                    // Закрываем окно
+                    NSApplication.shared.keyWindow?.close()
                 } else {
                     print("No folder selected")
                 }
@@ -52,6 +64,10 @@ struct FolderSelectionView: View {
         .frame(width: 300, height: 400)
         .onAppear {
             loadFolders()
+            // Загружаем последнюю выбранную папку из UserDefaults
+            if let lastSelectedFolderId = UserDefaults.standard.string(forKey: "LastSelectedFolderId") {
+                selectedFolderId = lastSelectedFolderId
+            }
         }
     }
 

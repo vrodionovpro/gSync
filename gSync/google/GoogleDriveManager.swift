@@ -39,17 +39,23 @@ class GoogleDriveManager: ObservableObject {
                 filesToUpload = getFilesFromLocalFolder(localFolder)
                 print("Files to upload: \(filesToUpload)")
                 if !filesToUpload.isEmpty {
+                    let totalFiles = filesToUpload.count
+                    var uploadedFiles = 0
                     let group = DispatchGroup()
                     for file in filesToUpload {
                         group.enter()
                         print("Starting upload for \(file.fileName)...")
                         driveService.uploadFile(filePath: file.filePath, fileName: file.fileName, folderId: folderId) { success in
+                            if success {
+                                uploadedFiles += 1
+                            }
+                            print("Upload progress: \(uploadedFiles)/\(totalFiles)")
                             print("Upload of \(file.fileName) \(success ? "succeeded" : "failed")")
                             group.leave()
                         }
                     }
                     group.notify(queue: .main) {
-                        print("All uploads completed")
+                        print("All uploads completed: \(uploadedFiles)/\(totalFiles)")
                     }
                 } else {
                     print("No files to upload")
