@@ -12,6 +12,7 @@ class MenuManager {
     private init() {
         setupStatusItem()
         setupProgressObserver()
+        setupNewFileObserver()
     }
 
     /// Настраивает статусный элемент в системном меню с иконкой.
@@ -61,8 +62,42 @@ class MenuManager {
             
             if success, let fileItem = self.fileItems[fileName] {
                 DispatchQueue.main.async {
-                    fileItem.title = "\(fileName) (100%)" // Убираем скорость после завершения
+                    fileItem.title = "\(fileName) (100%)"
                 }
+            }
+        }
+    }
+
+    /// Настраивает наблюдение за новыми стабилизированными файлами.
+    private func setupNewFileObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NewStableFileDetected"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let _ = notification.userInfo?["filePath"] as? String,
+                  let fileName = notification.userInfo?["fileName"] as? String,
+                  let folderPath = notification.userInfo?["folderPath"] as? String,
+                  // MARK: - Изменение: Возвращаем использование localFolderId
+                  let localFolderId = notification.userInfo?["localFolderId"] as? UUID else { return }
+            
+            // Добавляем файл в меню
+            if let folderItem = self.folderItems[folderPath],
+               let folderMenu = folderItem.submenu {
+                let fileItem = NSMenuItem(title: fileName, action: nil, keyEquivalent: "")
+                folderMenu.addItem(fileItem)
+                self.fileItems[fileName] = fileItem
+            }
+
+            // Начинаем загрузку на Google Drive
+            // MARK: - Изменение: Ищем пару по localFolderId
+            if let folderPair = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localFolderId }),
+               let remoteFolderId = folderPair.remote?.id {
+                print("Initiating upload for \(fileName) with folderId: \(remoteFolderId), localFolderId: \(localFolderId)")
+                GoogleDriveManager.shared.setFolderId(remoteFolderId, localFolderId: localFolderId)
+            } else {
+                print("No folder pair found for localFolderId: \(localFolderId) at path: \(folderPath)")
             }
         }
     }
@@ -76,6 +111,8 @@ class MenuManager {
 
         if let localFolder = FolderManager.shared.addFolder(path: path) {
             addFilesToMenu(localFolder: localFolder, folderMenu: folderMenu)
+            FolderServer.shared.addFolderPair(localFolder: localFolder, remoteFolder: nil)
+            folderItems[path] = folderItem
         }
 
         if let menu = statusItem?.menu {

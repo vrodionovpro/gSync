@@ -6,6 +6,8 @@ import Foundation
 class FolderManager {
     static let shared = FolderManager()
     private var logger = Logger.shared // Для логирования операций
+    // MARK: - Изменение: Добавлен кэш для хранения LocalFolder с неизменными ID
+    private var folderCache: [String: LocalFolder] = [:] // Кэш для стабильных объектов по пути
 
     private init() {
         logger.log("FolderManager инициализирован")
@@ -15,9 +17,16 @@ class FolderManager {
     /// - Parameter path: Полный путь к локальной папке.
     /// - Returns: Корневой узел иерархии или nil при ошибке.
     func addFolder(path: String) -> LocalFolder? {
+        // MARK: - Изменение: Проверяем кэш перед созданием нового объекта
+        if let cachedFolder = folderCache[path] {
+            logger.log("Папка \(path) найдена в кэше, возвращаем существующий объект с id: \(cachedFolder.id)")
+            return cachedFolder
+        }
+
         let rootNode = buildFileTree(at: path)
         if let rootNode = rootNode {
             logger.log("Иерархия для папки \(path): \(rootNode)")
+            folderCache[path] = rootNode // Сохраняем в кэш
             return rootNode
         } else {
             logger.log("Ошибка при построении иерархии для пути: \(path)")
@@ -32,6 +41,14 @@ class FolderManager {
         return buildFileTree(at: path)
     }
 
+    /// Возвращает существующий объект LocalFolder из кэша.
+    /// - Parameter path: Полный путь к папке.
+    /// - Returns: Существующий LocalFolder или nil, если не найден.
+    // MARK: - Изменение: Добавлен метод для получения объекта из кэша
+    func getFolder(at path: String) -> LocalFolder? {
+        return folderCache[path]
+    }
+
     /// Рекурсивно строит дерево локальных файлов и папок.
     /// - Parameter path: Путь к текущей папке или файлу.
     /// - Returns: Узел иерархии или nil при ошибке.
@@ -43,6 +60,7 @@ class FolderManager {
         }
         let name = (path as NSString).lastPathComponent
 
+        // MARK: - Исправление: Убрано использование id в конструкторе, так как id генерируется автоматически
         var node = LocalFolder(name: name, path: path, isDirectory: isDirectory)
 
         if isDirectory {
@@ -53,6 +71,7 @@ class FolderManager {
                     let itemPath = (path as NSString).appendingPathComponent(item)
                     if let childNode = buildFileTree(at: itemPath) {
                         children.append(childNode)
+                        folderCache[itemPath] = childNode // Сохраняем дочерние элементы в кэш
                     }
                 }
                 node.children = children.isEmpty ? nil : children

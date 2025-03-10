@@ -47,7 +47,7 @@ struct FolderSelectionView: View {
             }
             // Кнопка для подтверждения выбора
             Button("Confirm") {
-                print("Confirm button pressed, selectedFolderId: \(selectedFolderId)") // Логируем выбор
+                print("Confirm button pressed, selectedFolderId: \(selectedFolderId), localFolderId: \(String(describing: localFolderId))") // Отладка
                 if !selectedFolderId.isEmpty {
                     // Сохраняем выбранный folderId в UserDefaults
                     UserDefaults.standard.set(selectedFolderId, forKey: "LastSelectedFolderId")

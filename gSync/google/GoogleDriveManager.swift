@@ -21,7 +21,11 @@ class GoogleDriveManager: ObservableObject {
         let authSuccess = driveService.authenticate()
         if authSuccess {
             print("Proceeding with Google Drive operations...")
-            let windowController = FolderSelectionWindowController(driveManager: self)
+            let windowController = FolderSelectionWindowController(
+                driveManager: self,
+                localFolderId: filesToUpload.first?.filePath != nil ? UUID() : nil,
+                localFolderPath: filesToUpload.first?.filePath ?? ""
+            )
             windowController.showWindow(nil)
         } else {
             print("Failed to authenticate with Google Drive")
@@ -31,6 +35,12 @@ class GoogleDriveManager: ObservableObject {
     func setFolderId(_ folderId: String, localFolderId: UUID?) {
         print("setFolderId called with folderId: \(folderId), localFolderId: \(String(describing: localFolderId))")
         if !folderId.isEmpty, let localId = localFolderId {
+            print("Searching for localFolder with id: \(localId)")
+            let pairs = FolderServer.shared.getAllFolderPairs()
+            print("Available folder pairs: \(pairs.count)")
+            for pair in pairs {
+                print("Checking pair: local.id = \(pair.local.id), remote = \(String(describing: pair.remote?.id))")
+            }
             if let localFolder = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localId })?.local {
                 filesToUpload = getFilesFromLocalFolder(localFolder)
                 print("Files to upload: \(filesToUpload)")

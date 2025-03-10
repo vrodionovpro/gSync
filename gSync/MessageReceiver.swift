@@ -52,10 +52,11 @@ class MessageReceiver {
     /// Вызывает окно выбора удалённой папки и сохраняет связь.
     func processPath(_ path: String) {
         let folderName = (path as NSString).lastPathComponent
-        MenuManager.shared.addFolderMenuItem(folderName: folderName, path: path) // Отображаем в меню
-        if let localFolder = FolderManager.shared.addFolder(path: path) { // Получаем иерархию
-            FolderServer.shared.addFolderPair(localFolder: localFolder, remoteId: nil) // Сохраняем локальную папку
-            showFolderSelectionWindow(for: localFolder) // Вызываем окно выбора
+        MenuManager.shared.addFolderMenuItem(folderName: folderName, path: path)
+        if let localFolder = FolderManager.shared.addFolder(path: path) {
+            print("Processed path \(path) with localFolder.id: \(localFolder.id)") // Отладка
+            FolderServer.shared.addFolderPair(localFolder: localFolder, remoteFolder: nil)
+            showFolderSelectionWindow(for: localFolder)
         } else {
             Logger.shared.log("Не удалось построить иерархию для пути: \(path)")
         }
@@ -68,7 +69,7 @@ class MessageReceiver {
             windowController = FolderSelectionWindowController(
                 driveManager: GoogleDriveManager.shared,
                 localFolderId: localFolder.id,
-                localFolderPath: localFolder.path // Передаём путь к локальной папке
+                localFolderPath: localFolder.path
             )
             windowController?.showWindow(nil)
             print("FolderSelectionWindow opened for localFolder: \(localFolder.path)")
