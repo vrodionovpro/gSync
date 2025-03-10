@@ -1,6 +1,6 @@
 import AppKit
 
-/// Слой наложения для отображения статусного текста над статусным элементом меню.
+/// Слой наложения для отображения общего статуса приложения над статусным элементом меню.
 class StatusOverlay: NSView {
     private static var sharedInstance: StatusOverlay?
     private var textField: NSTextField?
@@ -24,14 +24,13 @@ class StatusOverlay: NSView {
                 button.addSubview(sharedInstance!)
                 sharedInstance?.frame = button.bounds
             } else {
-                sharedInstance = StatusOverlay(frame: overlayFrame) // Фallback, если statusItem ещё не готов
+                sharedInstance = StatusOverlay(frame: overlayFrame) // Fallback
             }
         }
         return sharedInstance!
     }
 
     private func setup() {
-        // Создаём текстовое поле для отображения статуса
         textField = NSTextField(frame: bounds)
         textField?.isEditable = false
         textField?.isBezeled = false
@@ -42,10 +41,10 @@ class StatusOverlay: NSView {
         if let textField = textField {
             addSubview(textField)
         }
-        updateStatus("Ready") // Устанавливаем начальный статус
+        updateStatus("Ready") // Начальный статус
     }
 
-    /// Обновляет текст статуса.
+    /// Обновляет текст общего статуса.
     func updateStatus(_ status: String) {
         textField?.stringValue = status
     }

@@ -34,7 +34,6 @@ class GoogleDriveManager: ObservableObject {
     func setFolderId(_ folderId: String, localFolderId: UUID?) {
         print("setFolderId called with folderId: \(folderId), localFolderId: \(String(describing: localFolderId))")
         if !folderId.isEmpty, let localId = localFolderId {
-            // Собираем файлы из локальной папки
             if let localFolder = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localId })?.local {
                 filesToUpload = getFilesFromLocalFolder(localFolder)
                 print("Files to upload: \(filesToUpload)")
@@ -46,7 +45,6 @@ class GoogleDriveManager: ObservableObject {
                         group.enter()
                         print("Starting upload for \(file.fileName)...")
                         driveService.uploadFile(filePath: file.filePath, fileName: file.fileName, folderId: folderId, progressHandler: { progress in
-                            // Отправляем уведомление о прогрессе
                             NotificationCenter.default.post(name: NSNotification.Name("UploadProgressUpdate"), object: nil, userInfo: ["fileName": file.fileName, "progress": progress])
                         }, completion: { success in
                             if success {

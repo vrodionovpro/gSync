@@ -4,7 +4,7 @@ import AppKit
 /// Отвечает за создание и обновление элементов меню для папок и файлов.
 class MenuManager {
     static let shared = MenuManager()
-    var statusItem: NSStatusItem? // Публичный доступ для других компонентов
+    var statusItem: NSStatusItem?
     private var foldersMenu: NSMenu?
     private var folderItems: [String: NSMenuItem] = [:]
     private var fileItems: [String: NSMenuItem] = [:] // Храним элементы меню для файлов
@@ -14,16 +14,19 @@ class MenuManager {
         setupProgressObserver()
     }
 
-    /// Настраивает статусный элемент в системном меню.
+    /// Настраивает статусный элемент в системном меню с иконкой.
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
-            button.title = "gSync"
+            if let image = NSImage(named: NSImage.Name("StatusIcon")) { // Используем иконку
+                image.size = NSSize(width: 18, height: 18)
+                button.image = image
+            } else {
+                button.title = "gSync" // Фallback, если иконки нет
+            }
         }
         let menu = NSMenu()
         foldersMenu = NSMenu()
-        menu.addItem(withTitle: "Folders", action: nil, keyEquivalent: "")
-        menu.setSubmenu(foldersMenu, for: menu.item(withTitle: "Folders")!)
         menu.addItem(withTitle: "Quit", action: #selector(quit), keyEquivalent: "q")
         statusItem?.menu = menu
     }
@@ -39,49 +42,51 @@ class MenuManager {
                   let fileName = notification.userInfo?["fileName"] as? String,
                   let progressLine = notification.userInfo?["progress"] as? String else { return }
             
-            // Извлекаем процент прогресса из строки PROGRESS:X%
             let progress = progressLine.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
             if let fileItem = self.fileItems[fileName] {
-                fileItem.title = "\(fileName) (\(progress)%)" // Обновляем заголовок файла с прогрессом
+                DispatchQueue.main.async { // Гарантируем обновление на главном потоке
+                    fileItem.title = "\(fileName) (\(progress)%)"
+                }
             }
         }
     }
 
-    /// Добавляет элемент меню для новой папки и её содержимого.
+    /// Добавляет элемент меню для новой папки как топ-уровневый элемент с файлами внутри.
     /// - Parameters:
     ///   - folderName: Название папки.
     ///   - path: Путь к папке.
     func addFolderMenuItem(folderName: String, path: String) {
-        let folderItem = NSMenuItem(title: folderName, action: nil, keyEquivalent: "")
-        let folderSubmenu = NSMenu()
-        folderItem.submenu = folderSubmenu
-        folderItems[folderName] = folderItem
+        let folderMenu = NSMenu()
+        let folderItem = NSMenuItem()
+        folderItem.submenu = folderMenu
+        folderItem.title = folderName
 
         if let localFolder = FolderManager.shared.addFolder(path: path) {
-            addFilesToMenu(localFolder: localFolder, folderSubmenu: folderSubmenu)
+            addFilesToMenu(localFolder: localFolder, folderMenu: folderMenu)
         }
 
-        foldersMenu?.addItem(folderItem)
+        if let menu = statusItem?.menu {
+            menu.insertItem(folderItem, at: 0) // Добавляем папку как топ-уровневый элемент перед Quit
+        }
     }
 
-    /// Добавляет файлы из локальной папки в подменю.
+    /// Добавляет файлы из локальной папки в подменю папки.
     /// - Parameters:
     ///   - localFolder: Локальная папка с файлами.
-    ///   - folderSubmenu: Подменю для добавления файлов.
-    private func addFilesToMenu(localFolder: LocalFolder, folderSubmenu: NSMenu) {
+    ///   - folderMenu: Подменю для добавления файлов.
+    private func addFilesToMenu(localFolder: LocalFolder, folderMenu: NSMenu) {
         if let children = localFolder.children {
             for child in children {
                 if !child.isDirectory {
                     let fileItem = NSMenuItem(title: child.name, action: nil, keyEquivalent: "")
-                    folderSubmenu.addItem(fileItem)
-                    fileItems[child.name] = fileItem // Сохраняем элемент для обновления прогресса
+                    folderMenu.addItem(fileItem)
+                    fileItems[child.name] = fileItem // Сохраняем для обновления прогресса
                 } else if let subChildren = child.children {
-                    // Рекурсивно добавляем файлы из подпапок без создания лишнего уровня
                     for subChild in subChildren {
                         if !subChild.isDirectory {
                             let fileItem = NSMenuItem(title: subChild.name, action: nil, keyEquivalent: "")
-                            folderSubmenu.addItem(fileItem)
-                            fileItems[subChild.name] = fileItem // Сохраняем элемент для обновления прогресса
+                            folderMenu.addItem(fileItem)
+                            fileItems[subChild.name] = fileItem // Сохраняем для обновления прогресса
                         }
                     }
                 }
