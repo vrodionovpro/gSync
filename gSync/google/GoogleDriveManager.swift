@@ -11,12 +11,10 @@ class GoogleDriveManager: ObservableObject {
         self.driveService = driveService
     }
 
-    /// Возвращает доступ к сервису для выполнения операций.
     var service: GoogleDriveInterface {
         driveService
     }
 
-    /// Запускает процесс авторизации и отображает окно выбора папки.
     func performGoogleDriveOperations(filesToUpload: [(filePath: String, fileName: String)]) {
         print("Performing Google Drive operations with files: \(filesToUpload)")
         self.filesToUpload = filesToUpload
@@ -30,7 +28,6 @@ class GoogleDriveManager: ObservableObject {
         }
     }
 
-    /// Устанавливает ID папки и запускает загрузку.
     func setFolderId(_ folderId: String, localFolderId: UUID?) {
         print("setFolderId called with folderId: \(folderId), localFolderId: \(String(describing: localFolderId))")
         if !folderId.isEmpty, let localId = localFolderId {
@@ -49,6 +46,7 @@ class GoogleDriveManager: ObservableObject {
                         }, completion: { success in
                             if success {
                                 uploadedFiles += 1
+                                NotificationCenter.default.post(name: NSNotification.Name("UploadCompleted"), object: nil, userInfo: ["fileName": file.fileName, "success": success])
                             }
                             print("Upload progress: \(uploadedFiles)/\(totalFiles)")
                             print("Upload of \(file.fileName) \(success ? "succeeded" : "failed")")
@@ -69,7 +67,6 @@ class GoogleDriveManager: ObservableObject {
         }
     }
 
-    /// Собирает список файлов из локальной папки.
     private func getFilesFromLocalFolder(_ folder: LocalFolder) -> [(filePath: String, fileName: String)] {
         var files: [(filePath: String, fileName: String)] = []
         if let children = folder.children {

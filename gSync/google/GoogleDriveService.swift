@@ -21,25 +21,25 @@ class GoogleDriveService: GoogleDriveInterface {
         var outputData = Data()
         let progressQueue = DispatchQueue(label: "progressQueue")
 
-        let readingTask = DispatchSource.makeReadSource(fileDescriptor: outputHandle.fileDescriptor, queue: progressQueue)
-        readingTask.setEventHandler {
-            let newData = outputHandle.availableData
+        outputHandle.readabilityHandler = { handle in
+            let newData = handle.availableData
             if newData.count > 0 {
                 outputData.append(newData)
                 if let outputString = String(data: newData, encoding: .utf8) {
+                    print("Received raw data: \(outputString)")  // Диагностика
                     let lines = outputString.components(separatedBy: .newlines)
-                    for line in lines {
+                    for line in lines where !line.isEmpty {
+                        print("Processed line: \(line)")  // Диагностика
                         if line.hasPrefix("PROGRESS:") {
-                            progressHandler(line) // Передача прогресса
+                            progressHandler(line)
                         }
                     }
                 }
             }
         }
-        readingTask.resume()
 
         task.waitUntilExit()
-        readingTask.cancel()
+        outputHandle.readabilityHandler = nil
 
         let output = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .newlines)
         let success = task.terminationStatus == 0
@@ -96,7 +96,6 @@ class GoogleDriveService: GoogleDriveInterface {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.config.serviceAccountPath, filePath, fileName, folderId]) { progress in
-                // Логируем прогресс в консоль
                 let progressValue = progress.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
                 print("[\(fileName)] uploading \(progressValue)%")
                 progressHandler?(progress)

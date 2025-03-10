@@ -47,8 +47,23 @@ class MenuManager {
                 DispatchQueue.main.async {
                     fileItem.title = "\(fileName) (\(progress)%)"
                 }
-            } else {
-                print("File item not found for \(fileName)") // Логируем, если файл не найден
+            }
+        }
+
+        // Наблюдение за завершением загрузки
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("UploadCompleted"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let fileName = notification.userInfo?["fileName"] as? String,
+                  let success = notification.userInfo?["success"] as? Bool else { return }
+            
+            if success, let fileItem = self.fileItems[fileName] {
+                DispatchQueue.main.async {
+                    fileItem.title = "\(fileName) (100%)" // Устанавливаем 100% при успешной загрузке
+                }
             }
         }
     }

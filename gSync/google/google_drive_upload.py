@@ -5,27 +5,25 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import time
 
+# Отключаем буферизацию для stdout
+sys.stdout.reconfigure(line_buffering=True)
+
 def upload_file(service_account_path, file_path, file_name, folder_id):
-    # Аутентификация с использованием сервисного аккаунта
     credentials, _ = google.auth.load_credentials_from_file(service_account_path)
     drive_service = build('drive', 'v3', credentials=credentials)
 
     try:
-        # Проверка существования файла в указанной папке
         query = f"name='{file_name}' and '{folder_id}' in parents"
         results = drive_service.files().list(q=query, fields="files(id, name)").execute()
         if results.get('files', []):
             print(f"already exists")
             return False
 
-        # Настройки для resumable upload с чанками по 256 MB
-        CHUNK_SIZE = 256 * 1024 * 1024  # 256 MB
+        # Уменьшаем размер чанка до 10 MB для более частых обновлений
+        CHUNK_SIZE = 50 * 1024 * 1024  # 10 MB
         file_size = os.path.getsize(file_path)
-        media = MediaFileUpload(file_path,
-                              chunksize=CHUNK_SIZE,
-                              resumable=True)
+        media = MediaFileUpload(file_path, chunksize=CHUNK_SIZE, resumable=True)
 
-        # Инициализация загрузки файла
         request = drive_service.files().create(
             body={'name': file_name, 'parents': [folder_id]},
             media_body=media,
@@ -35,16 +33,19 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
         uploaded_size = 0
         last_progress_time = time.time()
 
+        print(f"Starting upload for {file_name}")
         while response is None:
             status, response = request.next_chunk()
             if status:
                 uploaded_size = status.resumable_progress
                 current_time = time.time()
-                if current_time - last_progress_time >= 5:  # Обновление каждые 5 секунд
+                # Принудительное обновление каждые 5 секунд, даже если прогресс мал
+                if current_time - last_progress_time >= 5:
                     progress = int((uploaded_size / file_size) * 100)
-                    print(f"PROGRESS:{progress}%", flush=True)  # Отправка прогресса
+                    print(f"PROGRESS:{progress}%", flush=True)
+                    print(f"Sent progress {progress}% at {time.ctime(current_time)}")
                     last_progress_time = current_time
-            time.sleep(1)  # Пауза для стабильности
+            time.sleep(0.1)  # Частая проверка
 
         print(f"Upload completed with file ID: {response.get('id')}")
         return True
