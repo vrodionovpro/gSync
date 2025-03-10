@@ -18,11 +18,11 @@ class MenuManager {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
-            if let image = NSImage(named: NSImage.Name("StatusIcon")) { // Используем иконку
+            if let image = NSImage(named: NSImage.Name("StatusIcon")) {
                 image.size = NSSize(width: 18, height: 18)
                 button.image = image
             } else {
-                button.title = "gSync" // Фallback, если иконки нет
+                button.title = "gSync"
             }
         }
         let menu = NSMenu()
@@ -44,17 +44,16 @@ class MenuManager {
             
             let progress = progressLine.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
             if let fileItem = self.fileItems[fileName] {
-                DispatchQueue.main.async { // Гарантируем обновление на главном потоке
+                DispatchQueue.main.async {
                     fileItem.title = "\(fileName) (\(progress)%)"
                 }
+            } else {
+                print("File item not found for \(fileName)") // Логируем, если файл не найден
             }
         }
     }
 
     /// Добавляет элемент меню для новой папки как топ-уровневый элемент с файлами внутри.
-    /// - Parameters:
-    ///   - folderName: Название папки.
-    ///   - path: Путь к папке.
     func addFolderMenuItem(folderName: String, path: String) {
         let folderMenu = NSMenu()
         let folderItem = NSMenuItem()
@@ -66,27 +65,24 @@ class MenuManager {
         }
 
         if let menu = statusItem?.menu {
-            menu.insertItem(folderItem, at: 0) // Добавляем папку как топ-уровневый элемент перед Quit
+            menu.insertItem(folderItem, at: 0)
         }
     }
 
     /// Добавляет файлы из локальной папки в подменю папки.
-    /// - Parameters:
-    ///   - localFolder: Локальная папка с файлами.
-    ///   - folderMenu: Подменю для добавления файлов.
     private func addFilesToMenu(localFolder: LocalFolder, folderMenu: NSMenu) {
         if let children = localFolder.children {
             for child in children {
                 if !child.isDirectory {
                     let fileItem = NSMenuItem(title: child.name, action: nil, keyEquivalent: "")
                     folderMenu.addItem(fileItem)
-                    fileItems[child.name] = fileItem // Сохраняем для обновления прогресса
+                    fileItems[child.name] = fileItem
                 } else if let subChildren = child.children {
                     for subChild in subChildren {
                         if !subChild.isDirectory {
                             let fileItem = NSMenuItem(title: subChild.name, action: nil, keyEquivalent: "")
                             folderMenu.addItem(fileItem)
-                            fileItems[subChild.name] = fileItem // Сохраняем для обновления прогресса
+                            fileItems[subChild.name] = fileItem
                         }
                     }
                 }

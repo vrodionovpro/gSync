@@ -5,27 +5,18 @@ class GoogleDriveService: GoogleDriveInterface {
     private let config = EnvironmentConfig.shared
 
     private init() {
-        print("GoogleDriveService initialized") // Инициализация сервиса
+        print("GoogleDriveService initialized")
     }
 
-    // MARK: - Helper Methods
-
-    /// Выполняет Python-скрипт с указанными аргументами и возвращает его вывод, статус и прогресс в реальном времени.
-    /// - Parameters:
-    ///   - scriptPath: Путь к Python-скрипту.
-    ///   - arguments: Аргументы для передачи в скрипт.
-    ///   - progressHandler: Обработчик прогресса (вызывается при получении строки PROGRESS:X%).
-    /// - Returns: Кортеж (вывод скрипта, успех выполнения).
     private func runPythonScript(_ scriptPath: String, arguments: [String], progressHandler: @escaping (String) -> Void) -> (output: String?, success: Bool) {
         let task = Process()
         task.launchPath = "/usr/bin/python3"
         task.arguments = [scriptPath] + arguments
         let pipe = Pipe()
         task.standardOutput = pipe
-        task.standardError = pipe // Для захвата ошибок
+        task.standardError = pipe
         task.launch()
 
-        // Чтение вывода в реальном времени
         let outputHandle = pipe.fileHandleForReading
         var outputData = Data()
         let progressQueue = DispatchQueue(label: "progressQueue")
@@ -54,8 +45,6 @@ class GoogleDriveService: GoogleDriveInterface {
         let success = task.terminationStatus == 0
         return (output, success)
     }
-
-    // MARK: - GoogleDriveInterface Methods
 
     func authenticate() -> Bool {
         let (output, success) = runPythonScript(config.pythonAuthScriptPath, arguments: [config.serviceAccountPath]) { _ in }
@@ -92,7 +81,7 @@ class GoogleDriveService: GoogleDriveInterface {
         }
 
         let (checkOutput, checkSuccess) = runPythonScript(config.pythonCheckFileExistsScriptPath, arguments: [config.serviceAccountPath, fileName, folderId]) { progress in
-            progressHandler?(progress) // Передача прогресса, если обработчик задан
+            progressHandler?(progress)
         }
         if let checkOutput = checkOutput {
             print("File existence check output: \(checkOutput)")
@@ -107,7 +96,10 @@ class GoogleDriveService: GoogleDriveInterface {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.config.serviceAccountPath, filePath, fileName, folderId]) { progress in
-                progressHandler?(progress) // Передача прогресса во время загрузки
+                // Логируем прогресс в консоль
+                let progressValue = progress.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
+                print("[\(fileName)] uploading \(progressValue)%")
+                progressHandler?(progress)
             }
             if let output = output {
                 print("Python output: \(output)")
@@ -128,11 +120,9 @@ class GoogleDriveService: GoogleDriveInterface {
         return success
     }
 
-    /// Возвращает иерархию папок в виде списка корневых папок.
-    /// - Вывод сжат для удобства чтения (количество корневых и общих папок с примерами).
     func fetchFolders() -> [RemoteFolder] {
         let (output, success) = runPythonScript(config.pythonListFoldersScriptPath, arguments: [config.serviceAccountPath]) { _ in }
-        print("fetchFolders success: \(success)") // Простая индикация успеха
+        print("fetchFolders success: \(success)")
         guard success, let output = output, let jsonData = output.data(using: .utf8) else {
             print("Failed to parse folder list from Python script")
             return []
@@ -144,7 +134,7 @@ class GoogleDriveService: GoogleDriveInterface {
             let rootCount = folders.count
             let totalCount = countFolders(folders)
             let sampleNames = folders.prefix(3).map { $0.name }.joined(separator: ", ")
-            print("fetchFolders output: \(rootCount) root folder(s), \(totalCount) total folder(s) (e.g., \(sampleNames))") // Сжатый вывод
+            print("fetchFolders output: \(rootCount) root folder(s), \(totalCount) total folder(s) (e.g., \(sampleNames))")
             return folders
         } catch {
             print("Failed to decode folder hierarchy: \(error)")
@@ -152,7 +142,6 @@ class GoogleDriveService: GoogleDriveInterface {
         }
     }
 
-    /// Подсчитывает общее количество папок, включая вложенные.
     private func countFolders(_ folders: [RemoteFolder]) -> Int {
         var count = folders.count
         for folder in folders {

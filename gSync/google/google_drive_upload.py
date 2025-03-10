@@ -27,7 +27,7 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
 
         # Инициализация загрузки файла
         request = drive_service.files().create(
-            body={'name': file_name, 'parents': [folder_id]},  # Исправлено на folder_id
+            body={'name': file_name, 'parents': [folder_id]},
             media_body=media,
             fields='id'
         )
@@ -42,7 +42,7 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
                 current_time = time.time()
                 if current_time - last_progress_time >= 5:  # Обновление каждые 5 секунд
                     progress = int((uploaded_size / file_size) * 100)
-                    print(f"PROGRESS:{progress}%", flush=True)
+                    print(f"PROGRESS:{progress}%", flush=True)  # Отправка прогресса
                     last_progress_time = current_time
             time.sleep(1)  # Пауза для стабильности
 
