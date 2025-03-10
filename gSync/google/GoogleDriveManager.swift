@@ -42,7 +42,16 @@ class GoogleDriveManager: ObservableObject {
                         group.enter()
                         print("Starting upload for \(file.fileName)...")
                         driveService.uploadFile(filePath: file.filePath, fileName: file.fileName, folderId: folderId, progressHandler: { progress in
-                            NotificationCenter.default.post(name: NSNotification.Name("UploadProgressUpdate"), object: nil, userInfo: ["fileName": file.fileName, "progress": progress])
+                            let components = progress.split(separator: " ")
+                            if components.count >= 2 {
+                                let progressValue = components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
+                                let speedValue = components[1].replacingOccurrences(of: "SPEED:", with: "")
+                                NotificationCenter.default.post(name: NSNotification.Name("UploadProgressUpdate"), object: nil, userInfo: [
+                                    "fileName": file.fileName,
+                                    "progress": progressValue,
+                                    "speed": speedValue
+                                ])
+                            }
                         }, completion: { success in
                             if success {
                                 uploadedFiles += 1
