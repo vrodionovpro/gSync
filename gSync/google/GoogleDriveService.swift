@@ -19,17 +19,16 @@ class GoogleDriveService: GoogleDriveInterface {
 
         let outputHandle = pipe.fileHandleForReading
         var outputData = Data()
-        let progressQueue = DispatchQueue(label: "progressQueue")
 
         outputHandle.readabilityHandler = { handle in
             let newData = handle.availableData
             if newData.count > 0 {
                 outputData.append(newData)
                 if let outputString = String(data: newData, encoding: .utf8) {
-                    print("Received raw data: \(outputString)")  // Диагностика
+                    print("Received raw data: \(outputString)")
                     let lines = outputString.components(separatedBy: .newlines)
                     for line in lines where !line.isEmpty {
-                        print("Processed line: \(line)")  // Диагностика
+                        print("Processed line: \(line)")
                         if line.hasPrefix("PROGRESS:") {
                             progressHandler(line)
                         }
@@ -96,9 +95,13 @@ class GoogleDriveService: GoogleDriveInterface {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.config.serviceAccountPath, filePath, fileName, folderId]) { progress in
-                let progressValue = progress.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
-                print("[\(fileName)] uploading \(progressValue)%")
-                progressHandler?(progress)
+                let components = progress.split(separator: " ")
+                if components.count == 2 {
+                    let progressValue = components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
+                    let speedValue = components[1].replacingOccurrences(of: "SPEED:", with: "")
+                    print("[\(fileName)] uploading \(progressValue)% \(speedValue) Mb/s")
+                    progressHandler?(progress)
+                }
             }
             if let output = output {
                 print("Python output: \(output)")

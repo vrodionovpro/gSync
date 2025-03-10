@@ -20,7 +20,7 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
             return False
 
         # Уменьшаем размер чанка до 10 MB для более частых обновлений
-        CHUNK_SIZE = 50 * 1024 * 1024  # 10 MB
+        CHUNK_SIZE = 10 * 1024 * 1024  # 10 MB
         file_size = os.path.getsize(file_path)
         media = MediaFileUpload(file_path, chunksize=CHUNK_SIZE, resumable=True)
 

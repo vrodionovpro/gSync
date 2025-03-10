@@ -42,15 +42,18 @@ class MenuManager {
                   let fileName = notification.userInfo?["fileName"] as? String,
                   let progressLine = notification.userInfo?["progress"] as? String else { return }
             
-            let progress = progressLine.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
-            if let fileItem = self.fileItems[fileName] {
-                DispatchQueue.main.async {
-                    fileItem.title = "\(fileName) (\(progress)%)"
+            let components = progressLine.split(separator: " ")
+            if components.count == 2 {
+                let progressValue = components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
+                let speedValue = components[1].replacingOccurrences(of: "SPEED:", with: "")
+                if let fileItem = self.fileItems[fileName] {
+                    DispatchQueue.main.async {
+                        fileItem.title = "\(fileName) (\(progressValue)%) \(speedValue) Mb/s"
+                    }
                 }
             }
         }
 
-        // Наблюдение за завершением загрузки
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("UploadCompleted"),
             object: nil,
@@ -62,7 +65,7 @@ class MenuManager {
             
             if success, let fileItem = self.fileItems[fileName] {
                 DispatchQueue.main.async {
-                    fileItem.title = "\(fileName) (100%)" // Устанавливаем 100% при успешной загрузке
+                    fileItem.title = "\(fileName) (100%) 0 Mb/s"
                 }
             }
         }
