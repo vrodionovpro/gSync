@@ -76,22 +76,22 @@ class MenuManager {
             queue: .main
         ) { [weak self] notification in
             guard let self = self,
-                  let _ = notification.userInfo?["filePath"] as? String,
+                  let filePath = notification.userInfo?["filePath"] as? String,
                   let fileName = notification.userInfo?["fileName"] as? String,
                   let folderPath = notification.userInfo?["folderPath"] as? String,
-                  // MARK: - Изменение: Возвращаем использование localFolderId
                   let localFolderId = notification.userInfo?["localFolderId"] as? UUID else { return }
             
-            // Добавляем файл в меню
+            // MARK: - Изменение: Добавляем файл в меню, если он ещё не добавлен
             if let folderItem = self.folderItems[folderPath],
-               let folderMenu = folderItem.submenu {
+               let folderMenu = folderItem.submenu,
+               self.fileItems[fileName] == nil { // Проверяем, не добавлен ли уже файл
                 let fileItem = NSMenuItem(title: fileName, action: nil, keyEquivalent: "")
                 folderMenu.addItem(fileItem)
                 self.fileItems[fileName] = fileItem
+                print("Added \(fileName) to menu for folder \(folderPath)")
             }
 
-            // Начинаем загрузку на Google Drive
-            // MARK: - Изменение: Ищем пару по localFolderId
+            // Инициируем загрузку после стабилизации
             if let folderPair = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localFolderId }),
                let remoteFolderId = folderPair.remote?.id {
                 print("Initiating upload for \(fileName) with folderId: \(remoteFolderId), localFolderId: \(localFolderId)")
@@ -110,7 +110,16 @@ class MenuManager {
         folderItem.title = folderName
 
         if let localFolder = FolderManager.shared.addFolder(path: path) {
+            // MARK: - Изменение: Добавляем файлы в меню сразу, но отправляем их на стабилизацию
             addFilesToMenu(localFolder: localFolder, folderMenu: folderMenu)
+            
+            // Отправляем все файлы на стабилизацию перед загрузкой
+            if let children = localFolder.children {
+                for child in children where !child.isDirectory {
+                    FileStabilizer.shared.addFile(path: child.path, name: child.name, folderPath: path)
+                }
+            }
+            
             FolderServer.shared.addFolderPair(localFolder: localFolder, remoteFolder: nil)
             folderItems[path] = folderItem
         }
@@ -125,15 +134,18 @@ class MenuManager {
         if let children = localFolder.children {
             for child in children {
                 if !child.isDirectory {
+                    // MARK: - Изменение: Добавляем файл в меню сразу
                     let fileItem = NSMenuItem(title: child.name, action: nil, keyEquivalent: "")
                     folderMenu.addItem(fileItem)
                     fileItems[child.name] = fileItem
+                    print("Initially added \(child.name) to menu for folder \(localFolder.path)")
                 } else if let subChildren = child.children {
                     for subChild in subChildren {
                         if !subChild.isDirectory {
                             let fileItem = NSMenuItem(title: subChild.name, action: nil, keyEquivalent: "")
                             folderMenu.addItem(fileItem)
                             fileItems[subChild.name] = fileItem
+                            print("Initially added \(subChild.name) to menu for folder \(localFolder.path)")
                         }
                     }
                 }
@@ -148,5 +160,20 @@ class MenuManager {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+}
+
+// MARK: - FileStabilizer синглтон (оставлен без изменений)
+extension FileStabilizer {
+    static let shared = FileStabilizer { filePath, fileName, folderPath in
+        NotificationCenter.default.post(
+            name: NSNotification.Name("NewStableFileDetected"),
+            object: nil,
+            userInfo: [
+                "filePath": filePath,
+                "fileName": fileName,
+                "folderPath": folderPath
+            ]
+        )
     }
 }
