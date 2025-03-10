@@ -61,7 +61,7 @@ class MenuManager {
             
             if success, let fileItem = self.fileItems[fileName] {
                 DispatchQueue.main.async {
-                    fileItem.title = "\(fileName) (100%) 0 Mb/s"
+                    fileItem.title = "\(fileName) (100%)" // Убираем скорость после завершения
                 }
             }
         }
