@@ -19,7 +19,7 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
             print(f"already exists")
             return False
 
-        CHUNK_SIZE = 5 * 1024 * 1024  # 5 MB
+        CHUNK_SIZE = 50 * 1024 * 1024  # 5 MB
         file_size = os.path.getsize(file_path)
         media = MediaFileUpload(file_path, chunksize=CHUNK_SIZE, resumable=True)
 
@@ -31,6 +31,7 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
         response = None
         uploaded_size = 0
         last_progress_time = time.time()
+        last_uploaded_size = 0
 
         print(f"Starting upload for {file_name}")
         while response is None:
@@ -40,9 +41,15 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
                 current_time = time.time()
                 if current_time - last_progress_time >= 5:
                     progress = int((uploaded_size / file_size) * 100)
-                    print(f"PROGRESS:{progress}%", flush=True)
-                    print(f"Sent progress {progress}% at {time.ctime(current_time)}")
+                    # Расчёт скорости в Mb/s
+                    time_diff = current_time - last_progress_time
+                    bytes_uploaded = uploaded_size - last_uploaded_size
+                    speed_mb_s = (bytes_uploaded / (1024 * 1024)) / time_diff if time_diff > 0 else 0
+                    speed_mb_s = round(speed_mb_s)
+                    print(f"PROGRESS:{progress}% SPEED:{speed_mb_s}", flush=True)
+                    print(f"Sent progress {progress}% at {time.ctime(current_time)} with speed {speed_mb_s} Mb/s")
                     last_progress_time = current_time
+                    last_uploaded_size = uploaded_size
             time.sleep(0.1)
 
         print(f"Upload completed with file ID: {response.get('id')}")

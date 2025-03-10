@@ -96,9 +96,12 @@ class GoogleDriveService: GoogleDriveInterface {
         DispatchQueue.global(qos: .userInitiated).async {
             let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.config.serviceAccountPath, filePath, fileName, folderId]) { progress in
                 if progress.hasPrefix("PROGRESS:") {
-                    let progressValue = progress.replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
-                    print("[\(fileName)] uploading \(progressValue)%")
-                    progressHandler?(progress)
+                    let components = progress.split(separator: " ")
+                    if components.count >= 2 {
+                        let progressValue = components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
+                        print("[\(fileName)] uploading \(progressValue)%")
+                        progressHandler?(progress)
+                    }
                 }
             }
             if let output = output {
