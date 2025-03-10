@@ -40,12 +40,11 @@ class MenuManager {
         ) { [weak self] notification in
             guard let self = self,
                   let fileName = notification.userInfo?["fileName"] as? String,
-                  let progressValue = notification.userInfo?["progress"] as? String,
-                  let speedValue = notification.userInfo?["speed"] as? String else { return }
+                  let progressValue = notification.userInfo?["progress"] as? String else { return }
             
             if let fileItem = self.fileItems[fileName] {
                 DispatchQueue.main.async {
-                    fileItem.title = "\(fileName) (\(progressValue)%) \(speedValue) Mb/s"
+                    fileItem.title = "\(fileName) (\(progressValue)%)"
                 }
             }
         }
@@ -61,7 +60,7 @@ class MenuManager {
             
             if success, let fileItem = self.fileItems[fileName] {
                 DispatchQueue.main.async {
-                    fileItem.title = "\(fileName) (100%) 0 Mb/s"
+                    fileItem.title = "\(fileName) (100%)"
                 }
             }
         }

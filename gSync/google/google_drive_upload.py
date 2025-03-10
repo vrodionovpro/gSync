@@ -19,8 +19,7 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
             print(f"already exists")
             return False
 
-        # Уменьшаем размер чанка до 10 MB для более частых обновлений
-        CHUNK_SIZE = 10 * 1024 * 1024  # 10 MB
+        CHUNK_SIZE = 5 * 1024 * 1024  # 5 MB
         file_size = os.path.getsize(file_path)
         media = MediaFileUpload(file_path, chunksize=CHUNK_SIZE, resumable=True)
 
@@ -39,13 +38,12 @@ def upload_file(service_account_path, file_path, file_name, folder_id):
             if status:
                 uploaded_size = status.resumable_progress
                 current_time = time.time()
-                # Принудительное обновление каждые 5 секунд, даже если прогресс мал
                 if current_time - last_progress_time >= 5:
                     progress = int((uploaded_size / file_size) * 100)
                     print(f"PROGRESS:{progress}%", flush=True)
                     print(f"Sent progress {progress}% at {time.ctime(current_time)}")
                     last_progress_time = current_time
-            time.sleep(0.1)  # Частая проверка
+            time.sleep(0.1)
 
         print(f"Upload completed with file ID: {response.get('id')}")
         return True
