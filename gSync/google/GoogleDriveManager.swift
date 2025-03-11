@@ -6,13 +6,29 @@ class GoogleDriveManager: ObservableObject {
     static let shared = GoogleDriveManager()
     private let driveService: GoogleDriveInterface
     private var filesToUpload: [(filePath: String, fileName: String)] = []
+    private var cancelledUploads: Set<String> = [] // Отслеживаем отменённые загрузки
 
     init(driveService: GoogleDriveInterface = GoogleDriveService.shared) {
         self.driveService = driveService
+        setupCancelObserver()
     }
 
     var service: GoogleDriveInterface {
         driveService
+    }
+
+    /// Настраивает наблюдение за отменой загрузок.
+    private func setupCancelObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("CancelUpload"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let fileName = notification.userInfo?["fileName"] as? String else { return }
+            self.cancelledUploads.insert(fileName)
+            print("Upload cancelled for \(fileName)")
+        }
     }
 
     func performGoogleDriveOperations(filesToUpload: [(filePath: String, fileName: String)]) {
@@ -52,28 +68,7 @@ class GoogleDriveManager: ObservableObject {
                     for file in filesToUpload {
                         group.enter()
                         print("Starting upload for \(file.fileName)...")
-                        driveService.uploadFile(filePath: file.filePath, fileName: file.fileName, folderId: folderId, progressHandler: { progress in
-                            if progress.hasPrefix("PROGRESS:") {
-                                let components = progress.split(separator: " ")
-                                if components.count >= 2 {
-                                    let progressValue = components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
-                                    let speedValue = components[1].replacingOccurrences(of: "SPEED:", with: "")
-                                    NotificationCenter.default.post(name: NSNotification.Name("UploadProgressUpdate"), object: nil, userInfo: [
-                                        "fileName": file.fileName,
-                                        "progress": progressValue,
-                                        "speed": speedValue
-                                    ])
-                                }
-                            }
-                        }, completion: { success in
-                            if success {
-                                uploadedFiles += 1
-                                NotificationCenter.default.post(name: NSNotification.Name("UploadCompleted"), object: nil, userInfo: ["fileName": file.fileName, "success": success])
-                            }
-                            print("Upload progress: \(uploadedFiles)/\(totalFiles)")
-                            print("Upload of \(file.fileName) \(success ? "succeeded" : "failed")")
-                            group.leave()
-                        })
+                        uploadSingleFile(filePath: file.filePath, fileName: file.fileName, folderId: folderId, group: group)
                     }
                     group.notify(queue: .main) {
                         print("All uploads completed: \(uploadedFiles)/\(totalFiles)")
@@ -90,9 +85,16 @@ class GoogleDriveManager: ObservableObject {
     }
 
     /// Загружает один файл независимо.
-    func uploadSingleFile(filePath: String, fileName: String, folderId: String) {
+    func uploadSingleFile(filePath: String, fileName: String, folderId: String, group: DispatchGroup? = nil) {
+        guard !cancelledUploads.contains(fileName) else {
+            print("Upload of \(fileName) was cancelled before starting")
+            group?.leave()
+            return
+        }
+
         print("Starting upload for \(fileName)...")
-        driveService.uploadFile(filePath: filePath, fileName: fileName, folderId: folderId, progressHandler: { progress in
+        driveService.uploadFile(filePath: filePath, fileName: fileName, folderId: folderId, progressHandler: { [weak self] progress in
+            guard let self = self, !self.cancelledUploads.contains(fileName) else { return }
             if progress.hasPrefix("PROGRESS:") {
                 let components = progress.split(separator: " ")
                 if components.count >= 2 {
@@ -105,13 +107,17 @@ class GoogleDriveManager: ObservableObject {
                     ])
                 }
             }
-        }, completion: { success in
-            if success {
+        }, completion: { [weak self] success in
+            guard let self = self else { return }
+            if self.cancelledUploads.contains(fileName) {
+                print("Upload of \(fileName) was cancelled during process")
+            } else if success {
                 NotificationCenter.default.post(name: NSNotification.Name("UploadCompleted"), object: nil, userInfo: ["fileName": fileName, "success": success])
                 print("Upload of \(fileName) succeeded")
             } else {
                 print("Upload of \(fileName) failed")
             }
+            group?.leave()
         })
     }
 
@@ -125,5 +131,9 @@ class GoogleDriveManager: ObservableObject {
             }
         }
         return files
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }

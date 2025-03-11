@@ -70,7 +70,7 @@ class MenuManager {
         }
     }
 
-    /// Настраивает наблюдение за новыми и стабилизированными файлами.
+    /// Настраивает наблюдение за новыми, стабилизированными и удалёнными файлами.
     private func setupFileObservers() {
         // Обработка новых файлов (кандидатов)
         NotificationCenter.default.addObserver(
@@ -121,6 +121,34 @@ class MenuManager {
                 GoogleDriveManager.shared.uploadSingleFile(filePath: filePath, fileName: fileName, folderId: remoteFolderId)
             } else {
                 print("No folder pair found for localFolderId: \(localFolderId) at path: \(folderPath)")
+            }
+        }
+
+        // Обработка удалённых файлов
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("FileRemoved"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let fileName = notification.userInfo?["fileName"] as? String,
+                  let folderPath = notification.userInfo?["folderPath"] as? String else { return }
+            
+            if let fileItem = self.fileItems[fileName],
+               let folderItem = self.folderItems[folderPath],
+               let folderMenu = folderItem.submenu {
+                DispatchQueue.main.async {
+                    folderMenu.removeItem(fileItem)
+                    self.fileItems.removeValue(forKey: fileName)
+                    self.candidateFiles.remove(fileName)
+                    print("Removed \(fileName) from menu for folder \(folderPath)")
+                }
+                // Уведомляем GoogleDriveManager об отмене загрузки
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("CancelUpload"),
+                    object: nil,
+                    userInfo: ["fileName": fileName]
+                )
             }
         }
     }
