@@ -8,11 +8,12 @@ class MenuManager {
     private var foldersMenu: NSMenu?
     private var folderItems: [String: NSMenuItem] = [:]
     private var fileItems: [String: NSMenuItem] = [:] // Храним элементы меню для файлов
+    private var candidateFiles: Set<String> = [] // Отслеживаем файлы-кандидаты
 
     private init() {
         setupStatusItem()
         setupProgressObserver()
-        setupNewFileObserver()
+        setupFileObservers()
     }
 
     /// Настраивает статусный элемент в системном меню с иконкой.
@@ -62,14 +63,38 @@ class MenuManager {
             
             if success, let fileItem = self.fileItems[fileName] {
                 DispatchQueue.main.async {
-                    fileItem.title = "\(fileName) (100%)"
+                    fileItem.title = fileName // Убираем прогресс после успешной загрузки
                 }
+                self.candidateFiles.remove(fileName) // Файл больше не кандидат
             }
         }
     }
 
-    /// Настраивает наблюдение за новыми стабилизированными файлами.
-    private func setupNewFileObserver() {
+    /// Настраивает наблюдение за новыми и стабилизированными файлами.
+    private func setupFileObservers() {
+        // Обработка новых файлов (кандидатов)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NewFileDetected"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let fileName = notification.userInfo?["fileName"] as? String,
+                  let folderPath = notification.userInfo?["folderPath"] as? String else { return }
+            
+            if let folderItem = self.folderItems[folderPath],
+               let folderMenu = folderItem.submenu,
+               self.fileItems[fileName] == nil { // Добавляем только если ещё не в меню
+                let candidateName = "[\(fileName)_candidate]"
+                let fileItem = NSMenuItem(title: candidateName, action: nil, keyEquivalent: "")
+                folderMenu.addItem(fileItem)
+                self.fileItems[fileName] = fileItem
+                self.candidateFiles.insert(fileName)
+                print("Added \(candidateName) to menu for folder \(folderPath)")
+            }
+        }
+
+        // Обработка стабилизированных файлов
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("NewStableFileDetected"),
             object: nil,
@@ -81,28 +106,26 @@ class MenuManager {
                   let folderPath = notification.userInfo?["folderPath"] as? String,
                   let localFolderId = notification.userInfo?["localFolderId"] as? UUID else { return }
             
-            // MARK: - Изменение: Добавляем файл в меню, если он ещё не добавлен
-            if let folderItem = self.folderItems[folderPath],
-               let folderMenu = folderItem.submenu,
-               self.fileItems[fileName] == nil { // Проверяем, не добавлен ли уже файл
-                let fileItem = NSMenuItem(title: fileName, action: nil, keyEquivalent: "")
-                folderMenu.addItem(fileItem)
-                self.fileItems[fileName] = fileItem
-                print("Added \(fileName) to menu for folder \(folderPath)")
+            if let fileItem = self.fileItems[fileName] {
+                DispatchQueue.main.async {
+                    fileItem.title = fileName // Убираем [file_candidate]
+                    print("File \(fileName) stabilized and ready for upload")
+                }
+                self.candidateFiles.remove(fileName)
             }
 
-            // Инициируем загрузку после стабилизации
+            // Инициируем проверку и загрузку
             if let folderPair = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localFolderId }),
                let remoteFolderId = folderPair.remote?.id {
                 print("Initiating upload for \(fileName) with folderId: \(remoteFolderId), localFolderId: \(localFolderId)")
-                GoogleDriveManager.shared.setFolderId(remoteFolderId, localFolderId: localFolderId)
+                GoogleDriveManager.shared.uploadSingleFile(filePath: filePath, fileName: fileName, folderId: remoteFolderId)
             } else {
                 print("No folder pair found for localFolderId: \(localFolderId) at path: \(folderPath)")
             }
         }
     }
 
-    /// Добавляет элемент меню для новой папки как топ-уровневый элемент с файлами внутри.
+    /// Добавляет элемент меню для новой папки как топ-уровневый элемент.
     func addFolderMenuItem(folderName: String, path: String) {
         let folderMenu = NSMenu()
         let folderItem = NSMenuItem()
@@ -110,46 +133,12 @@ class MenuManager {
         folderItem.title = folderName
 
         if let localFolder = FolderManager.shared.addFolder(path: path) {
-            // MARK: - Изменение: Добавляем файлы в меню сразу, но отправляем их на стабилизацию
-            addFilesToMenu(localFolder: localFolder, folderMenu: folderMenu)
-            
-            // Отправляем все файлы на стабилизацию перед загрузкой
-            if let children = localFolder.children {
-                for child in children where !child.isDirectory {
-                    FileStabilizer.shared.addFile(path: child.path, name: child.name, folderPath: path)
-                }
-            }
-            
             FolderServer.shared.addFolderPair(localFolder: localFolder, remoteFolder: nil)
             folderItems[path] = folderItem
         }
 
         if let menu = statusItem?.menu {
             menu.insertItem(folderItem, at: 0)
-        }
-    }
-
-    /// Добавляет файлы из локальной папки в подменю папки.
-    private func addFilesToMenu(localFolder: LocalFolder, folderMenu: NSMenu) {
-        if let children = localFolder.children {
-            for child in children {
-                if !child.isDirectory {
-                    // MARK: - Изменение: Добавляем файл в меню сразу
-                    let fileItem = NSMenuItem(title: child.name, action: nil, keyEquivalent: "")
-                    folderMenu.addItem(fileItem)
-                    fileItems[child.name] = fileItem
-                    print("Initially added \(child.name) to menu for folder \(localFolder.path)")
-                } else if let subChildren = child.children {
-                    for subChild in subChildren {
-                        if !subChild.isDirectory {
-                            let fileItem = NSMenuItem(title: subChild.name, action: nil, keyEquivalent: "")
-                            folderMenu.addItem(fileItem)
-                            fileItems[subChild.name] = fileItem
-                            print("Initially added \(subChild.name) to menu for folder \(localFolder.path)")
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -163,7 +152,7 @@ class MenuManager {
     }
 }
 
-// MARK: - FileStabilizer синглтон (оставлен без изменений)
+// MARK: - FileStabilizer синглтон
 extension FileStabilizer {
     static let shared = FileStabilizer { filePath, fileName, folderPath in
         NotificationCenter.default.post(

@@ -42,6 +42,7 @@ class GoogleDriveManager: ObservableObject {
                 print("Checking pair: local.id = \(pair.local.id), remote = \(String(describing: pair.remote?.id))")
             }
             if let localFolder = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localId })?.local {
+                FolderServer.shared.updateRemoteFolder(localFolderId: localId, remoteFolderId: folderId)
                 filesToUpload = getFilesFromLocalFolder(localFolder)
                 print("Files to upload: \(filesToUpload)")
                 if !filesToUpload.isEmpty {
@@ -86,6 +87,32 @@ class GoogleDriveManager: ObservableObject {
         } else {
             print("Invalid folderId or localFolderId")
         }
+    }
+
+    /// Загружает один файл независимо.
+    func uploadSingleFile(filePath: String, fileName: String, folderId: String) {
+        print("Starting upload for \(fileName)...")
+        driveService.uploadFile(filePath: filePath, fileName: fileName, folderId: folderId, progressHandler: { progress in
+            if progress.hasPrefix("PROGRESS:") {
+                let components = progress.split(separator: " ")
+                if components.count >= 2 {
+                    let progressValue = components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
+                    let speedValue = components[1].replacingOccurrences(of: "SPEED:", with: "")
+                    NotificationCenter.default.post(name: NSNotification.Name("UploadProgressUpdate"), object: nil, userInfo: [
+                        "fileName": fileName,
+                        "progress": progressValue,
+                        "speed": speedValue
+                    ])
+                }
+            }
+        }, completion: { success in
+            if success {
+                NotificationCenter.default.post(name: NSNotification.Name("UploadCompleted"), object: nil, userInfo: ["fileName": fileName, "success": success])
+                print("Upload of \(fileName) succeeded")
+            } else {
+                print("Upload of \(fileName) failed")
+            }
+        })
     }
 
     private func getFilesFromLocalFolder(_ folder: LocalFolder) -> [(filePath: String, fileName: String)] {
