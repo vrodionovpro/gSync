@@ -3,9 +3,23 @@ import Foundation
 class GoogleDriveService: GoogleDriveInterface {
     static let shared = GoogleDriveService()
     private let config = EnvironmentConfig.shared
+    private let serviceAccountPath: String
 
     private init() {
+        self.serviceAccountPath = config.serviceAccountPath
         print("GoogleDriveService initialized")
+        clearAuthCache() // Очищаем кэш токенов при инициализации
+    }
+
+    /// Очищает кэш авторизации, если он существует.
+    private func clearAuthCache() {
+        // Предполагается, что Python-скрипт не кэширует токены локально.
+        // Если кэш есть (например, в ~/.cache/), можно добавить удаление:
+        let cachePath = NSHomeDirectory() + "/.cache/google-auth"
+        if FileManager.default.fileExists(atPath: cachePath) {
+            try? FileManager.default.removeItem(atPath: cachePath)
+            print("Cleared Google auth cache at \(cachePath)")
+        }
     }
 
     private func runPythonScript(_ scriptPath: String, arguments: [String], progressHandler: @escaping (String) -> Void) -> (output: String?, success: Bool) {
@@ -29,9 +43,7 @@ class GoogleDriveService: GoogleDriveInterface {
                     let lines = outputString.components(separatedBy: .newlines)
                     for line in lines where !line.isEmpty {
                         print("Processed line: \(line)")
-                        if line.hasPrefix("PROGRESS:") {
-                            progressHandler(line)
-                        }
+                        progressHandler(line)
                     }
                 }
             }
@@ -46,7 +58,7 @@ class GoogleDriveService: GoogleDriveInterface {
     }
 
     func authenticate() -> Bool {
-        let (output, success) = runPythonScript(config.pythonAuthScriptPath, arguments: [config.serviceAccountPath]) { _ in }
+        let (output, success) = runPythonScript(config.pythonAuthScriptPath, arguments: [serviceAccountPath]) { _ in }
         if let output = output {
             print("Python output: \(output.replacingOccurrences(of: "ya29.*", with: "[REDACTED]", options: .regularExpression))")
         }
@@ -55,11 +67,10 @@ class GoogleDriveService: GoogleDriveInterface {
     }
 
     func listFiles() -> Bool {
-        let (output, success) = runPythonScript(config.pythonListFilesScriptPath, arguments: [config.serviceAccountPath]) { _ in }
+        let (output, success) = runPythonScript(config.pythonListFilesScriptPath, arguments: [serviceAccountPath]) { _ in }
         if let output = output {
             print("Python output: \(output)")
         }
-        print("Listing files \(success ? "successful" : "failed")")
         return success
     }
 
@@ -68,7 +79,6 @@ class GoogleDriveService: GoogleDriveInterface {
         if let output = output {
             print("MD5 calculation output: \(output)")
         }
-        print("MD5 calculation \(success ? "successful" : "failed")")
         return success
     }
 
@@ -79,83 +89,95 @@ class GoogleDriveService: GoogleDriveInterface {
             return
         }
 
-        let (checkOutput, checkSuccess) = runPythonScript(config.pythonCheckFileExistsScriptPath, arguments: [config.serviceAccountPath, fileName, folderId]) { progress in
+        let (checkOutput, checkSuccess) = runPythonScript(config.pythonCheckFileExistsScriptPath, arguments: [serviceAccountPath, fileName, folderId]) { progress in
             progressHandler?(progress)
         }
-        if let checkOutput = checkOutput {
-            print("File existence check output: \(checkOutput)")
-            if checkOutput.contains("already exists") {
-                print("Skipping upload: File \(fileName) already exists in folder \(folderId)")
-                DispatchQueue.main.async { completion(false) }
-                return
-            }
-        } else if !checkSuccess {
-            print("Failed to get file existence check output")
+        if let checkOutput = checkOutput, checkOutput.contains("already exists") {
+            print("Skipping upload: File \(fileName) already exists in folder \(folderId)")
+            DispatchQueue.main.async { completion(false) }
+            return
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.config.serviceAccountPath, filePath, fileName, folderId]) { progress in
-                if progress.hasPrefix("PROGRESS:") {
-                    let components = progress.split(separator: " ")
-                    if components.count >= 2 {
-                        let progressValue = components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")
-                        print("[\(fileName)] uploading \(progressValue)%")
-                        progressHandler?(progress)
-                    }
-                }
+            let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: [self.serviceAccountPath, filePath, fileName, folderId]) { progress in
+                progressHandler?(progress)
             }
             if let output = output {
                 print("Python output: \(output)")
             }
-            print("Upload \(success ? "successful" : "failed")")
-            DispatchQueue.main.async {
-                completion(success)
-            }
+            DispatchQueue.main.async { completion(success) }
         }
     }
 
     func listFolders() -> Bool {
-        let (output, success) = runPythonScript(config.pythonListFoldersScriptPath, arguments: [config.serviceAccountPath]) { _ in }
+        let (output, success) = runPythonScript(config.pythonListFoldersScriptPath, arguments: [serviceAccountPath]) { _ in }
         if let output = output {
             print("Python output: \(output)")
         }
-        print("Listing folders \(success ? "successful" : "failed")")
         return success
     }
 
     func fetchFolders() -> [RemoteFolder] {
-        let (output, success) = runPythonScript(config.pythonListFoldersScriptPath, arguments: [config.serviceAccountPath]) { _ in }
-        print("fetchFolders success: \(success)")
+        let (output, success) = runPythonScript(config.pythonListFoldersScriptPath, arguments: [serviceAccountPath]) { _ in }
         guard success, let output = output, let jsonData = output.data(using: .utf8) else {
-            print("Failed to parse folder list from Python script")
+            print("Failed to fetch folders")
             return []
         }
 
         do {
-            let decoder = JSONDecoder()
-            let folders = try decoder.decode([RemoteFolder].self, from: jsonData)
-            let rootCount = folders.count
-            let totalCount = countFolders(folders)
-            let sampleNames = folders.prefix(3).map { $0.name }.joined(separator: ", ")
-            print("fetchFolders output: \(rootCount) root folder(s), \(totalCount) total folder(s) (e.g., \(sampleNames))")
+            let folders = try JSONDecoder().decode([RemoteFolder].self, from: jsonData)
             return folders
         } catch {
-            print("Failed to decode folder hierarchy: \(error)")
+            print("Failed to decode folders: \(error)")
             return []
         }
     }
 
-    private func countFolders(_ folders: [RemoteFolder]) -> Int {
-        var count = folders.count
-        for folder in folders {
-            if let children = folder.children {
-                count += countFolders(children)
-            }
+    func checkFileExistsByMD5(md5: String, folderId: String) -> Bool {
+        let (output, success) = runPythonScript(config.pythonCheckMD5ScriptPath, arguments: [serviceAccountPath, md5, folderId]) { _ in }
+        if let output = output {
+            print("MD5 check output: \(output)")
         }
-        return count
+        return success && output?.contains("already exists") == true
     }
 
-    func checkFileExistsByMD5(md5: String, folderId: String) -> Bool {
-        return false
+    func checkStorageQuota(completion: @escaping (Result<(total: Int64, used: Int64), Error>) -> Void) {
+        let (output, success) = runPythonScript(config.pythonQuotaScriptPath, arguments: [serviceAccountPath]) { _ in }
+        guard success, let output = output, let jsonData = output.data(using: .utf8) else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to fetch quota"])))
+            return
+        }
+
+        do {
+            let quota = try JSONDecoder().decode([String: Int64].self, from: jsonData)
+            guard let total = quota["total"], let used = quota["used"] else {
+                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid quota data"])
+            }
+            completion(.success((total, used)))
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
+    func uploadFileInChunks(filePath: String, fileName: String, folderId: String, chunkSize: Int64, startOffset: Int64, totalSize: Int64, sessionUri: String?, progressHandler: @escaping (Int64, Int64, String?) -> Void, completion: @escaping (Result<Void, Error>) -> Void) {
+        let args = [serviceAccountPath, filePath, fileName, folderId, String(chunkSize), String(startOffset), String(totalSize), sessionUri ?? "None"]
+        DispatchQueue.global(qos: .userInitiated).async {
+            let (output, success) = self.runPythonScript(self.config.pythonUploadScriptPath, arguments: args) { progress in
+                if progress.hasPrefix("PROGRESS:") {
+                    let components = progress.split(separator: " ")
+                    if components.count >= 2, let percent = Int(components[0].replacingOccurrences(of: "PROGRESS:", with: "").replacingOccurrences(of: "%", with: "")) {
+                        let uploadedBytes = Int64(Double(totalSize) * Double(percent) / 100.0)
+                        let uri = components.last?.hasPrefix("SESSION_URI:") == true ? String(components.last!.dropFirst(12)) : sessionUri
+                        progressHandler(uploadedBytes, totalSize, uri)
+                    }
+                }
+            }
+            if success {
+                completion(.success(()))
+            } else {
+                let error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: output ?? "Unknown error"])
+                completion(.failure(error))
+            }
+        }
     }
 }
