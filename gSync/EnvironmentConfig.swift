@@ -10,10 +10,23 @@ struct EnvironmentConfig {
         print("EnvironmentConfig initialized")
     }
 
-    // Переменные окружения
     var serviceAccountPath: String {
         guard let path = environment["SERVICE_ACCOUNT_PATH"] else {
             fatalError("Missing environment variable: SERVICE_ACCOUNT_PATH")
+        }
+        return path
+    }
+
+    var credentialsPath: String {
+        guard let path = environment["CREDENTIALS_PATH"] else {
+            fatalError("Missing environment variable: CREDENTIALS_PATH")
+        }
+        return path
+    }
+
+    var oauthConfigPath: String {
+        guard let path = environment["OAUTH_CONFIG_PATH"] else {
+            fatalError("Missing environment variable: OAUTH_CONFIG_PATH")
         }
         return path
     }
@@ -56,6 +69,20 @@ struct EnvironmentConfig {
     var pythonMD5ScriptPath: String {
         guard let path = environment["PYTHON_MD5"] else {
             fatalError("Missing environment variable: PYTHON_MD5")
+        }
+        return path
+    }
+
+    var pythonCheckMD5ScriptPath: String {
+        guard let path = environment["PYTHON_CHECK_MD5_SCRIPT_PATH"] else {
+            fatalError("Missing environment variable: PYTHON_CHECK_MD5_SCRIPT_PATH")
+        }
+        return path
+    }
+
+    var pythonQuotaScriptPath: String {
+        guard let path = environment["PYTHON_QUOTA_SCRIPT_PATH"] else {
+            fatalError("Missing environment variable: PYTHON_QUOTA_SCRIPT_PATH")
         }
         return path
     }

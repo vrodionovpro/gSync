@@ -1,18 +1,21 @@
 import Foundation
 
-/// Представляет узел в иерархии локальных файлов и папок.
-/// Хранит информацию о локальной структуре для синхронизации с удалённым хранилищем.
-struct LocalFolder: Identifiable {
-    let id = UUID() // Уникальный идентификатор для каждой локальной папки
-    let name: String // Имя папки или файла
-    let path: String // Полный путь к файлу или папке
-    let isDirectory: Bool // Указывает, является ли это папкой (true) или файлом (false)
-    var children: [LocalFolder]? // Дочерние элементы для папок
+struct LocalFolder: Codable {
+    let id: UUID
+    let path: String
+    let name: String
+    let isDirectory: Bool
+    var children: [LocalFolder]?
+    var isUploaded: Bool // Новый флаг
+    var md5Checksum: String? // Новый MD5-хэш
 
-    init(name: String, path: String, isDirectory: Bool, children: [LocalFolder]? = nil) {
-        self.name = name
+    init(id: UUID = UUID(), path: String, name: String, isDirectory: Bool, children: [LocalFolder]? = nil, isUploaded: Bool = false, md5Checksum: String? = nil) {
+        self.id = id
         self.path = path
+        self.name = name
         self.isDirectory = isDirectory
         self.children = children
+        self.isUploaded = isUploaded
+        self.md5Checksum = md5Checksum
     }
 }

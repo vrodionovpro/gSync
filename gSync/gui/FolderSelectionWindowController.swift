@@ -2,11 +2,11 @@ import SwiftUI
 import AppKit
 
 class FolderSelectionWindowController: NSWindowController {
-    let driveManager: GoogleDriveManager
+    let driveManager: SyncOrchestrator // Заменили GoogleDriveManager
     var localFolderId: UUID? // Идентификатор локальной папки для связи
     let localFolderPath: String // Путь к локальной папке для отображения
 
-    init(driveManager: GoogleDriveManager, localFolderId: UUID? = nil, localFolderPath: String = "") {
+    init(driveManager: SyncOrchestrator, localFolderId: UUID? = nil, localFolderPath: String = "") {
         self.driveManager = driveManager
         self.localFolderId = localFolderId
         self.localFolderPath = localFolderPath

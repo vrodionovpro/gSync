@@ -1,23 +1,15 @@
 import Foundation
 
-/// Утилитарный класс для работы с иерархией локальных файлов и папок.
-/// Предоставляет методы для построения дерева, поиска и обработки содержимого папок.
-/// Не занимается хранением данных — это функция FolderServer.
 class FolderManager {
     static let shared = FolderManager()
-    private var logger = Logger.shared // Для логирования операций
-    // MARK: - Изменение: Добавлен кэш для хранения LocalFolder с неизменными ID
-    private var folderCache: [String: LocalFolder] = [:] // Кэш для стабильных объектов по пути
+    private var logger = Logger.shared
+    private var folderCache: [String: LocalFolder] = [:]
 
     private init() {
         logger.log("FolderManager инициализирован")
     }
 
-    /// Добавляет папку и строит иерархию её содержимого.
-    /// - Parameter path: Полный путь к локальной папке.
-    /// - Returns: Корневой узел иерархии или nil при ошибке.
     func addFolder(path: String) -> LocalFolder? {
-        // MARK: - Изменение: Проверяем кэш перед созданием нового объекта
         if let cachedFolder = folderCache[path] {
             logger.log("Папка \(path) найдена в кэше, возвращаем существующий объект с id: \(cachedFolder.id)")
             return cachedFolder
@@ -26,7 +18,7 @@ class FolderManager {
         let rootNode = buildFileTree(at: path)
         if let rootNode = rootNode {
             logger.log("Иерархия для папки \(path): \(rootNode)")
-            folderCache[path] = rootNode // Сохраняем в кэш
+            folderCache[path] = rootNode
             return rootNode
         } else {
             logger.log("Ошибка при построении иерархии для пути: \(path)")
@@ -34,24 +26,14 @@ class FolderManager {
         }
     }
 
-    /// Возвращает иерархию содержимого для указанной папки.
-    /// - Parameter path: Полный путь к папке.
-    /// - Returns: Корневой узел иерархии или nil, если папка не найдена или ошибка.
     func getContents(for path: String) -> LocalFolder? {
         return buildFileTree(at: path)
     }
 
-    /// Возвращает существующий объект LocalFolder из кэша.
-    /// - Parameter path: Полный путь к папке.
-    /// - Returns: Существующий LocalFolder или nil, если не найден.
-    // MARK: - Изменение: Добавлен метод для получения объекта из кэша
     func getFolder(at path: String) -> LocalFolder? {
         return folderCache[path]
     }
 
-    /// Рекурсивно строит дерево локальных файлов и папок.
-    /// - Parameter path: Путь к текущей папке или файлу.
-    /// - Returns: Узел иерархии или nil при ошибке.
     private func buildFileTree(at path: String) -> LocalFolder? {
         let fileManager = FileManager.default
         guard let isDirectory = try? fileManager.attributesOfItem(atPath: path)[.type] as? FileAttributeType == .typeDirectory else {
@@ -60,8 +42,7 @@ class FolderManager {
         }
         let name = (path as NSString).lastPathComponent
 
-        // MARK: - Исправление: Убрано использование id в конструкторе, так как id генерируется автоматически
-        var node = LocalFolder(name: name, path: path, isDirectory: isDirectory)
+        var node = LocalFolder(path: path, name: name, isDirectory: isDirectory)
 
         if isDirectory {
             do {
@@ -71,7 +52,7 @@ class FolderManager {
                     let itemPath = (path as NSString).appendingPathComponent(item)
                     if let childNode = buildFileTree(at: itemPath) {
                         children.append(childNode)
-                        folderCache[itemPath] = childNode // Сохраняем дочерние элементы в кэш
+                        folderCache[itemPath] = childNode
                     }
                 }
                 node.children = children.isEmpty ? nil : children
@@ -84,11 +65,6 @@ class FolderManager {
         return node
     }
 
-    /// Поиск файла или папки по имени в иерархии.
-    /// - Parameters:
-    ///   - name: Имя файла или папки для поиска.
-    ///   - root: Корневой узел, в котором ведётся поиск.
-    /// - Returns: Первый найденный узел с указанным именем или nil.
     func findNode(byName name: String, in root: LocalFolder?) -> LocalFolder? {
         guard let root = root else { return nil }
         if root.name == name { return root }

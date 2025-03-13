@@ -67,7 +67,7 @@ class MessageReceiver {
     private func showFolderSelectionWindow(for localFolder: LocalFolder) {
         if GoogleDriveService.shared.authenticate() {
             windowController = FolderSelectionWindowController(
-                driveManager: GoogleDriveManager.shared,
+                driveManager: SyncOrchestrator.shared, // Заменили GoogleDriveManager
                 localFolderId: localFolder.id,
                 localFolderPath: localFolder.path
             )

@@ -1,14 +1,12 @@
 import AppKit
 
-/// Менеджер для управления меню приложения.
-/// Отвечает за создание и обновление элементов меню для папок и файлов.
 class MenuManager {
     static let shared = MenuManager()
     var statusItem: NSStatusItem?
     private var foldersMenu: NSMenu?
     private var folderItems: [String: NSMenuItem] = [:]
-    private var fileItems: [String: NSMenuItem] = [:] // Храним элементы меню для файлов
-    private var candidateFiles: Set<String> = [] // Отслеживаем файлы-кандидаты
+    private var fileItems: [String: NSMenuItem] = [:]
+    private var candidateFiles: Set<String> = []
 
     private init() {
         setupStatusItem()
@@ -16,7 +14,6 @@ class MenuManager {
         setupFileObservers()
     }
 
-    /// Настраивает статусный элемент в системном меню с иконкой.
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
@@ -29,11 +26,15 @@ class MenuManager {
         }
         let menu = NSMenu()
         foldersMenu = NSMenu()
-        menu.addItem(withTitle: "Quit", action: #selector(quit), keyEquivalent: "q")
+        
+        // Добавляем пункт "Quit" с явным target
+        let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self // Указываем target как self
+        menu.addItem(quitItem)
+        
         statusItem?.menu = menu
     }
 
-    /// Настраивает наблюдение за уведомлениями о прогрессе загрузки.
     private func setupProgressObserver() {
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("UploadProgressUpdate"),
@@ -45,8 +46,8 @@ class MenuManager {
                   let progressValue = notification.userInfo?["progress"] as? String,
                   let speedValue = notification.userInfo?["speed"] as? String else { return }
             
-            if let fileItem = self.fileItems[fileName] {
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                if let fileItem = self.fileItems[fileName] {
                     fileItem.title = "\(fileName) (\(progressValue)%) \(speedValue) Mb/s"
                 }
             }
@@ -61,18 +62,16 @@ class MenuManager {
                   let fileName = notification.userInfo?["fileName"] as? String,
                   let success = notification.userInfo?["success"] as? Bool else { return }
             
-            if success, let fileItem = self.fileItems[fileName] {
-                DispatchQueue.main.async {
-                    fileItem.title = fileName // Убираем прогресс после успешной загрузки
+            DispatchQueue.main.async {
+                if success, let fileItem = self.fileItems[fileName] {
+                    fileItem.title = fileName
+                    self.candidateFiles.remove(fileName)
                 }
-                self.candidateFiles.remove(fileName) // Файл больше не кандидат
             }
         }
     }
 
-    /// Настраивает наблюдение за новыми, стабилизированными и удалёнными файлами.
     private func setupFileObservers() {
-        // Обработка новых файлов (кандидатов)
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("NewFileDetected"),
             object: nil,
@@ -84,7 +83,7 @@ class MenuManager {
             
             if let folderItem = self.folderItems[folderPath],
                let folderMenu = folderItem.submenu,
-               self.fileItems[fileName] == nil { // Добавляем только если ещё не в меню
+               self.fileItems[fileName] == nil {
                 let candidateName = "[\(fileName)_candidate]"
                 let fileItem = NSMenuItem(title: candidateName, action: nil, keyEquivalent: "")
                 folderMenu.addItem(fileItem)
@@ -94,7 +93,6 @@ class MenuManager {
             }
         }
 
-        // Обработка стабилизированных файлов
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("NewStableFileDetected"),
             object: nil,
@@ -106,54 +104,24 @@ class MenuManager {
                   let folderPath = notification.userInfo?["folderPath"] as? String,
                   let localFolderId = notification.userInfo?["localFolderId"] as? UUID else { return }
             
-            if let fileItem = self.fileItems[fileName] {
-                DispatchQueue.main.async {
-                    fileItem.title = fileName // Убираем [file_candidate]
+            DispatchQueue.main.async {
+                if let fileItem = self.fileItems[fileName] {
+                    fileItem.title = fileName
+                    self.candidateFiles.remove(fileName)
                     print("File \(fileName) stabilized and ready for upload")
                 }
-                self.candidateFiles.remove(fileName)
-            }
 
-            // Инициируем проверку и загрузку
-            if let folderPair = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localFolderId }),
-               let remoteFolderId = folderPair.remote?.id {
-                print("Initiating upload for \(fileName) with folderId: \(remoteFolderId), localFolderId: \(localFolderId)")
-                GoogleDriveManager.shared.uploadSingleFile(filePath: filePath, fileName: fileName, folderId: remoteFolderId)
-            } else {
-                print("No folder pair found for localFolderId: \(localFolderId) at path: \(folderPath)")
-            }
-        }
-
-        // Обработка удалённых файлов
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("FileRemoved"),
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self = self,
-                  let fileName = notification.userInfo?["fileName"] as? String,
-                  let folderPath = notification.userInfo?["folderPath"] as? String else { return }
-            
-            if let fileItem = self.fileItems[fileName],
-               let folderItem = self.folderItems[folderPath],
-               let folderMenu = folderItem.submenu {
-                DispatchQueue.main.async {
-                    folderMenu.removeItem(fileItem)
-                    self.fileItems.removeValue(forKey: fileName)
-                    self.candidateFiles.remove(fileName)
-                    print("Removed \(fileName) from menu for folder \(folderPath)")
+                if let folderPair = FolderServer.shared.getAllFolderPairs().first(where: { $0.local.id == localFolderId }),
+                   let remoteFolderId = folderPair.remote?.id {
+                    print("Initiating upload for \(fileName) with folderId: \(remoteFolderId), localFolderId: \(localFolderId)")
+                    SyncOrchestrator.shared.uploadSingleFile(filePath: filePath, fileName: fileName, folderId: remoteFolderId)
+                } else {
+                    print("No folder pair found for localFolderId: \(localFolderId) at path: \(folderPath)")
                 }
-                // Уведомляем GoogleDriveManager об отмене загрузки
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("CancelUpload"),
-                    object: nil,
-                    userInfo: ["fileName": fileName]
-                )
             }
         }
     }
 
-    /// Добавляет элемент меню для новой папки как топ-уровневый элемент.
     func addFolderMenuItem(folderName: String, path: String) {
         let folderMenu = NSMenu()
         let folderItem = NSMenuItem()
@@ -170,27 +138,11 @@ class MenuManager {
         }
     }
 
-    /// Завершает работу приложения.
     @objc private func quit() {
         NSApplication.shared.terminate(nil)
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-    }
-}
-
-// MARK: - FileStabilizer синглтон
-extension FileStabilizer {
-    static let shared = FileStabilizer { filePath, fileName, folderPath in
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NewStableFileDetected"),
-            object: nil,
-            userInfo: [
-                "filePath": filePath,
-                "fileName": fileName,
-                "folderPath": folderPath
-            ]
-        )
     }
 }

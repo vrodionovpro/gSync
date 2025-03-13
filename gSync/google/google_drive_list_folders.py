@@ -1,5 +1,5 @@
 import sys
-import json
+import json  # Добавили импорт модуля json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
